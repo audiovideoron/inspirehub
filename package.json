@@ -1,0 +1,111 @@
+{
+  "name": "inspire-hub",
+  "version": "0.1.0",
+  "description": "Inspire Solutions hub - price lists, equipment, and more",
+  "main": "dist/main/main.js",
+  "scripts": {
+    "compile": "tsc && node -e \"const fs=require('fs');const path=require('path');['index.html','editor.css','bug-report-modal.css'].forEach(f=>fs.copyFileSync(path.join('src/renderer',f),path.join('dist/renderer',f)))\"",
+    "compile:watch": "tsc --watch",
+    "prestart": "npm run compile",
+    "start": "electron .",
+    "dev": "npm run compile && node scripts/dev.js",
+    "prebuild": "npm run compile",
+    "build": "electron-builder",
+    "build:mac": "electron-builder --mac",
+    "build:win": "electron-builder --win",
+    "build:linux": "electron-builder --linux",
+    "build:local:mac": "node scripts/build-python.js && electron-builder --mac",
+    "test": "jest"
+  },
+  "author": "AV Inspire",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "@types/node": "^25.0.3",
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.0",
+    "jest": "^30.2.0",
+    "ts-jest": "^29.4.6",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "tree-kill": "^1.2.2"
+  },
+  "build": {
+    "appId": "com.avinspire.hub",
+    "productName": "Inspire Hub",
+    "directories": {
+      "output": "dist"
+    },
+    "extraResources": [
+      {
+        "from": "dist/python-backend",
+        "to": "python-backend",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "asar": true,
+    "asarUnpack": [],
+    "mac": {
+      "category": "public.app-category.business",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.icns"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.ico"
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "category": "Office",
+      "icon": "assets/icons"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "files": [
+      "dist/**/*",
+      "src/renderer/**/*",
+      "package.json"
+    ]
+  }
+}

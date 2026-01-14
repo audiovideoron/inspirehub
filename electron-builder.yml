@@ -1,0 +1,53 @@
+appId: com.avinspire.pricelist
+productName: AV Inspire Price List
+copyright: Copyright © 2026 AV Inspire
+
+directories:
+  output: dist
+  buildResources: resources
+
+files:
+  - src/**/*
+  - package.json
+
+extraResources:
+  - from: dist/python-backend/
+    to: python-backend
+    filter:
+      - "**/*"
+
+mac:
+  category: public.app-category.business
+  target:
+    - target: dmg
+    - target: zip
+
+win:
+  icon: resources/icon.ico
+  target:
+    - target: nsis
+      arch: [x64]
+
+linux:
+  icon: resources/icon.png
+  category: Office
+  target:
+    - target: AppImage
+      arch: [x64]
+    - target: deb
+      arch: [x64]
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+
+dmg:
+  contents:
+    - x: 130
+      y: 220
+    - x: 410
+      y: 220
+      type: link
+      path: /Applications

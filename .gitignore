@@ -1,0 +1,69 @@
+# PDF files
+*.pdf
+
+# Generated files
+debug.log
+
+# Logs (including python-bridge.log from userData)
+logs/
+*.log
+*.log.old
+python-bridge.log
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+python/__pycache__/
+*.egg-info/
+
+# Node.js
+node_modules/
+
+# Electron build output
+dist/
+out/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE/Editor
+.vscode/
+
+# Claude Code local settings
+.claude/settings.local.json
+
+# PyInstaller build artifacts (but not build/*.spec config files)
+build/python-backend/
+build/*.manifest
+build/*.pyz
+build/*.pkg
+q57/
+eew/
+fnx/
+8jb/
+ya1/
+2j9/
+InspirePriceList-skp/
+InspirePriceList-07r/
+InspirePriceList-w8t/
+InspirePriceList-0dq/
+InspirePriceList-g98/
+InspirePriceList-w4t/
+InspirePriceList-atr/
+InspirePriceList-b9b/
+# bd worktree
+InspirePriceList-x2l/
+# bd worktree
+InspirePriceList-74l/
+# bd worktree
+InspirePriceList-oek/
+# bd worktree
+InspirePriceList-5tn/
+# bd worktree
+InspirePriceList-m2t/
+update_pdf_*.pdf
+.beads/attachments/*
+!.beads/attachments/.gitkeep

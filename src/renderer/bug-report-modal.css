@@ -1,0 +1,323 @@
+/**
+ * Bug Report Modal Styles
+ */
+
+.bug-hidden {
+    display: none !important;
+}
+
+.bug-modal {
+    display: flex;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 9999;
+    align-items: center;
+    justify-content: center;
+}
+
+.bug-modal-content {
+    background: white;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 600px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.bug-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.bug-modal-header h2 {
+    margin: 0;
+    font-size: 24px;
+    color: #333;
+}
+
+.bug-close-button {
+    background: none;
+    border: none;
+    font-size: 32px;
+    cursor: pointer;
+    color: #666;
+    line-height: 1;
+    padding: 0;
+    width: 32px;
+    height: 32px;
+    transition: color 0.2s;
+}
+
+.bug-close-button:hover {
+    color: #000;
+}
+
+.bug-modal-body {
+    padding: 20px;
+}
+
+.bug-form-group {
+    margin-bottom: 20px;
+}
+
+.bug-form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #333;
+    font-size: 14px;
+}
+
+.bug-form-group input[type="text"],
+.bug-form-group textarea {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 14px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    box-sizing: border-box;
+}
+
+.bug-form-group input[type="text"]:focus,
+.bug-form-group textarea:focus {
+    outline: none;
+    border-color: #2196f3;
+    box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.1);
+}
+
+.bug-form-group textarea {
+    resize: vertical;
+    min-height: 80px;
+}
+
+.bug-context {
+    font-size: 14px;
+    color: #333;
+    margin: 0 0 8px 0;
+    padding: 12px;
+    background: #f5f5f5;
+    border-radius: 4px 4px 0 0;
+    border-bottom: none;
+}
+
+.bug-activity {
+    list-style: none;
+    margin: 0 0 16px 0;
+    padding: 8px 12px;
+    background: #f5f5f5;
+    border-radius: 0 0 4px 4px;
+    font-size: 12px;
+    color: #666;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+
+.bug-activity li {
+    padding: 2px 0;
+}
+
+.bug-activity li::before {
+    content: "› ";
+    color: #999;
+}
+
+#similar-bugs {
+    background: #fff3cd;
+    padding: 15px;
+    border-radius: 4px;
+    margin-bottom: 20px;
+    border-left: 4px solid #ff9800;
+}
+
+#similar-bugs h3 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    font-size: 16px;
+    color: #856404;
+}
+
+#similar-bugs-list {
+    list-style: none;
+    padding: 0;
+    margin: 10px 0;
+}
+
+#similar-bugs-list li {
+    padding: 8px 12px;
+    background: white;
+    margin-bottom: 8px;
+    border-radius: 4px;
+    font-size: 14px;
+    color: #333;
+    border: 1px solid #ffeeba;
+}
+
+#similar-bugs-list li strong {
+    color: #856404;
+}
+
+.bug-status-badge {
+    color: #666;
+    font-size: 12px;
+    margin-left: 8px;
+    padding: 2px 6px;
+    background: #f0f0f0;
+    border-radius: 3px;
+}
+
+.bug-me-too-btn {
+    float: right;
+    padding: 4px 12px;
+    font-size: 12px;
+    background: #4caf50;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.bug-me-too-btn:hover {
+    background: #43a047;
+}
+
+.bug-me-too-btn:active {
+    background: #388e3c;
+}
+
+.bug-similar-header {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.bug-similar-desc {
+    margin-top: 6px;
+    font-size: 13px;
+    color: #666;
+    font-style: italic;
+    line-height: 1.4;
+}
+
+
+
+.bug-modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 20px;
+    border-top: 1px solid #e0e0e0;
+}
+
+.bug-button-primary,
+.bug-button-secondary {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 4px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 0.2s, box-shadow 0.2s;
+    font-weight: 500;
+}
+
+.bug-button-primary {
+    background: #2196f3;
+    color: white;
+}
+
+.bug-button-primary:hover {
+    background: #1976d2;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.bug-button-primary:active {
+    background: #1565c0;
+}
+
+.bug-button-primary:disabled {
+    background: #90caf9;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.bug-button-primary:disabled:hover {
+    background: #90caf9;
+    box-shadow: none;
+}
+
+.bug-button-secondary {
+    background: #e0e0e0;
+    color: #333;
+}
+
+.bug-button-secondary:hover {
+    background: #d0d0d0;
+}
+
+.bug-button-secondary:active {
+    background: #bdbdbd;
+}
+
+.bug-submission-status {
+    padding: 15px;
+    margin: 0 20px 20px 20px;
+    border-radius: 4px;
+    text-align: center;
+    font-size: 14px;
+}
+
+.bug-status-loading {
+    background: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffeeba;
+}
+
+.bug-status-success {
+    background: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.bug-status-error {
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+/* Smooth modal transitions */
+.bug-modal:not(.bug-hidden) {
+    animation: bugModalFadeIn 0.2s ease-out;
+}
+
+@keyframes bugModalFadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+.bug-modal-content {
+    animation: bugModalSlideIn 0.3s ease-out;
+}
+
+@keyframes bugModalSlideIn {
+    from {
+        transform: translateY(-20px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
