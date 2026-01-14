@@ -1,11 +1,11 @@
 ---
-description: Load context for InspirePriceList - architecture, issues, and current state (project)
+description: Load context for inspirehub - architecture, issues, and current state (project)
 allowed-tools: Bash, Read
 ---
 
 # Prime
 
-Initialize context for working on InspirePriceList by gathering project state and documentation.
+Initialize context for working on inspirehub by gathering project state and documentation.
 
 ## Execute
 

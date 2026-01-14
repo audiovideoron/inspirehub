@@ -6,7 +6,7 @@ import * as os from 'os';
 import { parseLogTimestamp, hasErrorInLogContent } from '../shared/utils';
 
 // GitHub API configuration for user bug reports
-const GITHUB_REPO = 'audiovideoron/InspirePriceList';
+const GITHUB_REPO = 'audiovideoron/inspirehub';
 
 // Load PAT from config file (injected at build time) or environment
 function loadGitHubPAT(): string {
@@ -294,7 +294,7 @@ export class BugReporter {
      */
     getSystemInfo(): SystemInfo {
         return {
-            app_name: 'InspirePriceList',
+            app_name: 'inspirehub',
             app_version: app.getVersion(),
             os: `${os.platform()} ${os.release()}`,
             arch: os.arch(),
@@ -492,7 +492,7 @@ ${logsContent}
             request.setHeader('Authorization', `Bearer ${GITHUB_PAT}`);
             request.setHeader('Accept', 'application/vnd.github+json');
             request.setHeader('Content-Type', 'application/json');
-            request.setHeader('User-Agent', 'InspirePriceList-BugSpray');
+            request.setHeader('User-Agent', 'inspirehub-BugSpray');
 
             let responseData = '';
 
@@ -567,7 +567,7 @@ ${logsContent}
                     console.error('bd create failed:', stderr);
                     resolve(null);
                 } else {
-                    // Extract bug ID from output (format: "Created issue: InspirePriceList-abc123")
+                    // Extract bug ID from output (format: "Created issue: inspirehub-abc123")
                     const match = stdout.match(/Created issue:\s*([\w-]+)/i);
                     const beadsId = match ? match[1] : null;
 

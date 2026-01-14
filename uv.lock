@@ -21,7 +21,7 @@ wheels = [
 ]
 
 [[package]]
-name = "inspire-price-list"
+name = "inspirehub"
 version = "1.0.0"
 source = { virtual = "." }
 dependencies = [

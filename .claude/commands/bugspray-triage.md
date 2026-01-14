@@ -7,7 +7,7 @@ Triage user-submitted bug reports from Bug Spray (GitHub Issues) into the beads 
 ## 1. Fetch Open Bug Spray Issues
 
 ```bash
-gh issue list -R audiovideoron/InspirePriceList --label "user-reported" --state open --json number,title,body,labels,createdAt
+gh issue list -R audiovideoron/inspirehub --label "user-reported" --state open --json number,title,body,labels,createdAt
 ```
 
 If no issues found, report "No Bug Spray submissions to triage" and exit.
@@ -35,7 +35,7 @@ Ask user: **Accept or Reject?**
 
 3. Close GitHub issue with bead reference:
    ```bash
-   gh issue close <number> -R audiovideoron/InspirePriceList -c "Accepted as <bead-id>"
+   gh issue close <number> -R audiovideoron/inspirehub -c "Accepted as <bead-id>"
    ```
 
 ### If Reject:
@@ -43,7 +43,7 @@ Ask user: **Accept or Reject?**
 1. Ask user for rejection reason
 2. Close GitHub issue:
    ```bash
-   gh issue close <number> -R audiovideoron/InspirePriceList -c "Rejected: <reason>"
+   gh issue close <number> -R audiovideoron/inspirehub -c "Rejected: <reason>"
    ```
 
 ## 3. Summary

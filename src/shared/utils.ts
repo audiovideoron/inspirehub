@@ -1,5 +1,5 @@
 /**
- * Shared utility functions for InspirePriceList
+ * Shared utility functions for inspirehub
  * These pure functions are extracted for testability and reuse.
  */
 
