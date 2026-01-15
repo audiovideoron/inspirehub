@@ -3,7 +3,7 @@ const path = require('path');
 const fs = require('fs');
 
 const projectRoot = path.join(__dirname, '..');
-const pythonDir = path.join(projectRoot, 'python');
+const pythonDir = path.join(projectRoot, 'python', 'price_list');
 const distDir = path.join(projectRoot, 'dist', 'python-backend');
 
 console.log('Building Python backend with PyInstaller...');
