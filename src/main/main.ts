@@ -1,6 +1,9 @@
 import { app, BrowserWindow, ipcMain, dialog, Menu, shell, IpcMainInvokeEvent, MessageBoxOptions } from 'electron';
 import * as path from 'path';
-import { startPythonBackend, stopPythonBackend, getPythonPort, getBackendStatus, getBackendEvents } from './python-bridge';
+import {
+    startPythonBackend, stopPythonBackend, getPythonPort, getBackendStatus, getBackendEvents,
+    startEquipmentBackend, stopEquipmentBackend, getEquipmentPort, getEquipmentStatus
+} from './python-bridge';
 import { BugReporter } from './bug-reporter';
 
 let mainWindow: BrowserWindow | null = null;
@@ -202,6 +205,15 @@ ipcMain.handle('get-python-port', (): number | null => {
 
 ipcMain.handle('get-backend-status', (): string => {
     return getBackendStatus();
+});
+
+// Equipment backend IPC handlers
+ipcMain.handle('get-equipment-port', (): number | null => {
+    return getEquipmentPort();
+});
+
+ipcMain.handle('get-equipment-status', (): string => {
+    return getEquipmentStatus();
 });
 
 ipcMain.handle('open-file-dialog', async (): Promise<string | null> => {
@@ -473,6 +485,16 @@ app.whenReady().then(async () => {
         return;
     }
 
+    // Start equipment backend (non-blocking, failures don't prevent app start)
+    console.log('Starting Equipment backend...');
+    try {
+        await startEquipmentBackend();
+        console.log(`Equipment backend running on port ${getEquipmentPort()}`);
+    } catch (error) {
+        console.error('Failed to start Equipment backend:', error);
+        // Equipment backend is optional - continue without it
+    }
+
     createMenu();
     createWindow();
     setupBackendEventListeners();
@@ -499,8 +521,12 @@ app.on('will-quit', async (event) => {
     }
     event.preventDefault();
     isCleaningUp = true;
-    console.log('Stopping Python backend...');
+    console.log('Stopping backends...');
     cleanupBackendEventListeners();
-    await stopPythonBackend();
+    // Stop both backends in parallel
+    await Promise.all([
+        stopPythonBackend(),
+        stopEquipmentBackend()
+    ]);
     app.quit();
 });

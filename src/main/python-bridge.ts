@@ -11,10 +11,20 @@ const backendEvents = new EventEmitter();
 
 type BackendStatus = 'stopped' | 'starting' | 'running' | 'crashed';
 
+// Price List backend state
 let pythonProcess: ChildProcess | null = null;
 let pythonPort: number | null = null;
 let shutdownToken: string | null = null;
 let backendStatus: BackendStatus = 'stopped';
+
+// Equipment backend state
+let equipmentProcess: ChildProcess | null = null;
+let equipmentPort: number | null = null;
+let equipmentShutdownToken: string | null = null;
+let equipmentStatus: BackendStatus = 'stopped';
+
+// Event emitter for equipment backend
+const equipmentEvents = new EventEmitter();
 
 // Debug logging to file with size limit and rotation
 const logFile = path.join(app.getPath('userData'), 'python-bridge.log');
@@ -146,8 +156,12 @@ function getPythonPath(): PythonPathInfo {
 // A 45s timeout provides sufficient headroom while still being reasonable for user UX.
 const STARTUP_TIMEOUT_MS = 45000;  // 45 seconds max wait
 const PROGRESS_INTERVAL_MS = 2000; // Emit progress every 2 seconds
-const PORT_RANGE_START = 8080;     // First port to try
-const PORT_RANGE_END = 8090;       // Last port to try
+
+// Port ranges for different backends (non-overlapping)
+const PRICE_LIST_PORT_START = 8080;
+const PRICE_LIST_PORT_END = 8089;
+const EQUIPMENT_PORT_START = 8090;
+const EQUIPMENT_PORT_END = 8099;
 
 /**
  * Check if a port is available
@@ -170,19 +184,22 @@ function isPortAvailable(port: number): Promise<boolean> {
 }
 
 /**
- * Find an available port in the configured range
+ * Find an available port in the specified range
+ * @param startPort - First port to try
+ * @param endPort - Last port to try
+ * @param name - Name for logging
  * @returns An available port
  * @throws {Error} If no ports are available in the range
  */
-async function findAvailablePort(): Promise<number> {
-    for (let port = PORT_RANGE_START; port <= PORT_RANGE_END; port++) {
+async function findAvailablePortInRange(startPort: number, endPort: number, name: string): Promise<number> {
+    for (let port = startPort; port <= endPort; port++) {
         if (await isPortAvailable(port)) {
-            log(`Found available port: ${port}`);
+            log(`Found available port for ${name}: ${port}`);
             return port;
         }
         log(`Port ${port} is in use, trying next...`);
     }
-    throw new Error(`No available ports in range ${PORT_RANGE_START}-${PORT_RANGE_END}`);
+    throw new Error(`No available ports for ${name} in range ${startPort}-${endPort}`);
 }
 
 /**
@@ -258,10 +275,10 @@ async function startPythonBackend(): Promise<number> {
     log(`Resources path: ${process.resourcesPath}`);
     log(`NODE_ENV: ${process.env.NODE_ENV}`);
 
-    // Find an available port
+    // Find an available port in the price-list range
     let port: number;
     try {
-        port = await findAvailablePort();
+        port = await findAvailablePortInRange(PRICE_LIST_PORT_START, PRICE_LIST_PORT_END, 'price-list');
     } catch (err) {
         backendStatus = 'stopped';
         backendEvents.emit('status-change', backendStatus);
@@ -483,6 +500,256 @@ async function stopPythonBackend(): Promise<void> {
     }
 }
 
+// ============================================================
+// Equipment Backend Functions
+// ============================================================
+
+/**
+ * Get the path to the Equipment API script.
+ * @returns Path info for Equipment backend
+ * @throws {Error} If the script does not exist
+ */
+function getEquipmentPath(): PythonPathInfo {
+    const isDev = process.env.NODE_ENV === 'development';
+
+    if (isDev) {
+        const projectRoot = path.join(__dirname, '../..');
+        const venvPython = process.platform === 'win32'
+            ? path.join(projectRoot, '.venv', 'Scripts', 'python.exe')
+            : path.join(projectRoot, '.venv', 'bin', 'python');
+
+        if (!fs.existsSync(venvPython)) {
+            throw new Error(
+                `Python virtual environment not found at: ${venvPython}\n` +
+                'Please run "uv sync" to create it.'
+            );
+        }
+
+        // Equipment backend runs as a module from python/ directory
+        return {
+            executable: venvPython,
+            args: ['-m', 'equipment.api']
+        };
+    }
+
+    // Production: use bundled PyInstaller executable
+    const resourcesPath = process.resourcesPath;
+    const platform = process.platform;
+
+    let binaryName = 'equipment-backend';
+    if (platform === 'win32') {
+        binaryName = 'equipment-backend.exe';
+    }
+
+    const executable = path.join(resourcesPath, 'equipment-backend', binaryName);
+
+    if (!fs.existsSync(executable)) {
+        throw new Error(
+            `Equipment backend executable not found at: ${executable}\n` +
+            'The application may not have been packaged correctly.'
+        );
+    }
+
+    return {
+        executable,
+        args: []
+    };
+}
+
+/**
+ * Start the Equipment backend server
+ * @returns The port the server is running on
+ */
+async function startEquipmentBackend(): Promise<number> {
+    let executable: string, args: string[];
+    try {
+        ({ executable, args } = getEquipmentPath());
+    } catch (err) {
+        log(`Failed to get Equipment path: ${err instanceof Error ? err.message : String(err)}`);
+        equipmentStatus = 'stopped';
+        equipmentEvents.emit('status-change', equipmentStatus);
+        throw err;
+    }
+
+    equipmentStatus = 'starting';
+    equipmentEvents.emit('status-change', equipmentStatus);
+
+    log(`Starting Equipment backend: ${executable} ${args.join(' ')}`);
+
+    // Find an available port in the equipment range
+    let port: number;
+    try {
+        port = await findAvailablePortInRange(EQUIPMENT_PORT_START, EQUIPMENT_PORT_END, 'equipment');
+    } catch (err) {
+        equipmentStatus = 'stopped';
+        equipmentEvents.emit('status-change', equipmentStatus);
+        throw err;
+    }
+
+    return new Promise((resolve, reject) => {
+        const fullArgs = [...args, '--port', port.toString()];
+        const sanitizedEnv = createSanitizedEnv();
+
+        // For module execution, set working directory to python/
+        const cwd = process.env.NODE_ENV === 'development'
+            ? path.join(__dirname, '../../python')
+            : undefined;
+
+        equipmentProcess = spawn(executable, fullArgs, {
+            stdio: ['pipe', 'pipe', 'pipe'],
+            env: sanitizedEnv,
+            cwd
+        });
+
+        let started = false;
+        let finished = false;
+        const startTime = Date.now();
+
+        const progressInterval = setInterval(() => {
+            if (!started) {
+                const elapsed = Math.round((Date.now() - startTime) / 1000);
+                log(`Equipment startup progress: ${elapsed}s elapsed`);
+                equipmentEvents.emit('startup-progress', {
+                    elapsed,
+                    maxWait: Math.round(STARTUP_TIMEOUT_MS / 1000)
+                });
+            }
+        }, PROGRESS_INTERVAL_MS);
+
+        const startupTimeout = setTimeout(() => {
+            if (!started) {
+                finish(false, new Error(`Equipment backend failed to start within ${STARTUP_TIMEOUT_MS / 1000} seconds`));
+            }
+        }, STARTUP_TIMEOUT_MS);
+
+        const finish = (success: boolean, result: number | Error): void => {
+            if (finished) return;
+            finished = true;
+            clearInterval(progressInterval);
+            clearTimeout(startupTimeout);
+            if (success) {
+                resolve(result as number);
+            } else {
+                reject(result);
+            }
+        };
+
+        equipmentProcess.stdout?.on('data', (data: Buffer) => {
+            const output = data.toString();
+
+            if (!started && output.includes('READY:')) {
+                const match = output.match(/^READY:(\d+):([A-Za-z0-9_-]+)$/m);
+                if (match) {
+                    equipmentPort = parseInt(match[1], 10);
+                    equipmentShutdownToken = match[2];
+                    started = true;
+                    equipmentStatus = 'running';
+                    equipmentEvents.emit('status-change', equipmentStatus);
+                    log(`[Equipment stdout] READY signal received on port ${equipmentPort}`);
+                    finish(true, equipmentPort);
+                    return;
+                }
+            }
+
+            log(`[Equipment stdout] ${output}`);
+        });
+
+        equipmentProcess.stderr?.on('data', (data: Buffer) => {
+            log(`[Equipment stderr] ${data.toString()}`);
+        });
+
+        equipmentProcess.on('error', (error: Error) => {
+            log(`Failed to start Equipment process: ${error.message}`);
+            if (!started) {
+                finish(false, error);
+            }
+        });
+
+        equipmentProcess.on('exit', (code: number | null, signal: NodeJS.Signals | null) => {
+            log(`Equipment process exited with code ${code}, signal ${signal}`);
+            const wasRunning = equipmentStatus === 'running';
+            equipmentProcess = null;
+            equipmentPort = null;
+            equipmentShutdownToken = null;
+
+            if (wasRunning && code !== 0) {
+                equipmentStatus = 'crashed';
+                equipmentEvents.emit('status-change', equipmentStatus, { code, signal });
+                equipmentEvents.emit('crashed', { code, signal });
+            } else {
+                equipmentStatus = 'stopped';
+                equipmentEvents.emit('status-change', equipmentStatus);
+            }
+
+            if (!started) {
+                finish(false, new Error(`Equipment process exited unexpectedly (code: ${code}, signal: ${signal})`));
+            }
+        });
+    });
+}
+
+/**
+ * Stop the Equipment backend server
+ */
+async function stopEquipmentBackend(): Promise<void> {
+    if (!equipmentProcess) {
+        return;
+    }
+
+    log('Stopping Equipment backend...');
+    equipmentStatus = 'stopped';
+
+    const pid = equipmentProcess.pid;
+    if (!pid) {
+        log('No PID available for Equipment process');
+        return;
+    }
+
+    equipmentProcess = null;
+    equipmentPort = null;
+    equipmentShutdownToken = null;
+    equipmentEvents.emit('status-change', equipmentStatus);
+
+    try {
+        await killWithTimeout(pid, 'SIGTERM', 3000);
+        log(`Successfully stopped Equipment backend (PID ${pid}) with SIGTERM`);
+        return;
+    } catch (err) {
+        log(`SIGTERM failed for Equipment PID ${pid}: ${err instanceof Error ? err.message : String(err)}`);
+    }
+
+    if (!isProcessRunning(pid)) {
+        log(`Equipment process ${pid} already terminated`);
+        return;
+    }
+
+    try {
+        await killWithTimeout(pid, 'SIGKILL', 3000);
+        log(`Successfully stopped Equipment backend (PID ${pid}) with SIGKILL`);
+        return;
+    } catch (err) {
+        log(`SIGKILL failed for Equipment PID ${pid}: ${err instanceof Error ? err.message : String(err)}`);
+    }
+
+    if (isProcessRunning(pid)) {
+        log(`WARNING: Failed to terminate Equipment process ${pid}`);
+        if (process.platform !== 'win32') {
+            try {
+                process.kill(pid, 'SIGKILL');
+                log(`Direct SIGKILL sent to Equipment PID ${pid}`);
+            } catch (e) {
+                log(`Direct SIGKILL failed: ${e instanceof Error ? e.message : String(e)}`);
+            }
+        }
+    } else {
+        log(`Equipment process ${pid} confirmed terminated`);
+    }
+}
+
+// ============================================================
+// Exported Functions - Price List Backend
+// ============================================================
+
 /**
  * Get the current Python backend port
  */
@@ -520,3 +787,37 @@ export function getBackendEvents(): EventEmitter {
 }
 
 export { startPythonBackend, stopPythonBackend };
+
+// ============================================================
+// Exported Functions - Equipment Backend
+// ============================================================
+
+/**
+ * Get the current Equipment backend port
+ */
+export function getEquipmentPort(): number | null {
+    return equipmentPort;
+}
+
+/**
+ * Get the Equipment backend status
+ */
+export function getEquipmentStatus(): BackendStatus {
+    return equipmentStatus;
+}
+
+/**
+ * Get the Equipment backend event emitter
+ */
+export function getEquipmentEvents(): EventEmitter {
+    return equipmentEvents;
+}
+
+/**
+ * Check if Equipment backend is running
+ */
+export function isEquipmentRunning(): boolean {
+    return equipmentStatus === 'running' && equipmentProcess !== null && equipmentPort !== null;
+}
+
+export { startEquipmentBackend, stopEquipmentBackend };
