@@ -316,7 +316,11 @@ async function handleSubmitRequest(e: Event): Promise<void> {
     submitBtn.textContent = 'Submitting...';
 
     try {
-        const response = await fetch(`${apiBaseUrl}/api/reservations`, {
+        // Get branch ID and include in request
+        const branchId = await window.api.getBranchId();
+        const branchParam = branchId ? `?branch_id=${encodeURIComponent(branchId)}` : '';
+
+        const response = await fetch(`${apiBaseUrl}/api/reservations${branchParam}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)

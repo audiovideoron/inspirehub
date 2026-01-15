@@ -49,6 +49,10 @@ contextBridge.exposeInMainWorld('api', {
     getEquipmentPort: (): Promise<any> => safeInvoke('get-equipment-port'),
     getEquipmentStatus: (): Promise<any> => safeInvoke('get-equipment-status'),
 
+    // Branch ID (configuration)
+    getBranchId: (): Promise<string | null> => safeInvoke('get-branch-id'),
+    setBranchId: (branchId: string): Promise<{ success: boolean; error?: string }> => safeInvoke('set-branch-id', branchId),
+
     // File dialogs
     openFileDialog: (): Promise<any> => safeInvoke('open-file-dialog'),
     saveFileDialog: (defaultName: string): Promise<any> => safeInvoke('save-file-dialog', defaultName),

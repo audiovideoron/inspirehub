@@ -5,6 +5,7 @@ import {
     startEquipmentBackend, stopEquipmentBackend, getEquipmentPort, getEquipmentStatus
 } from './python-bridge';
 import { BugReporter } from './bug-reporter';
+import { initConfig, isFirstRun, getBranchId, setBranchId } from './config-manager';
 
 let mainWindow: BrowserWindow | null = null;
 let bugReporter: BugReporter | null = null;
@@ -214,6 +215,20 @@ ipcMain.handle('get-equipment-port', (): number | null => {
 
 ipcMain.handle('get-equipment-status', (): string => {
     return getEquipmentStatus();
+});
+
+// Branch ID IPC handlers
+ipcMain.handle('get-branch-id', (): string | null => {
+    return getBranchId();
+});
+
+ipcMain.handle('set-branch-id', (event: IpcMainInvokeEvent, branchId: string): { success: boolean; error?: string } => {
+    try {
+        setBranchId(branchId);
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
 });
 
 ipcMain.handle('open-file-dialog', async (): Promise<string | null> => {
@@ -476,7 +491,151 @@ async function attemptBackendStart(): Promise<boolean | null> {
 }
 
 // App lifecycle
+// Prompt for branch ID on first run
+async function promptForBranchId(): Promise<boolean> {
+    // Use a simple prompt dialog
+    const result = await dialog.showMessageBox({
+        type: 'question',
+        title: 'Welcome to Inspire Hub',
+        message: 'Please identify your location',
+        detail: 'Enter a name for your hotel or branch (e.g., "La Jolla Marriott", "Minneapolis Hilton"). This will be used to track equipment requests.',
+        buttons: ['Continue', 'Quit'],
+        defaultId: 0,
+        cancelId: 1
+    });
+
+    if (result.response === 1) {
+        // User chose to quit
+        return false;
+    }
+
+    // Show input dialog
+    // Since Electron doesn't have a native input dialog, we'll use a BrowserWindow
+    return new Promise((resolve) => {
+        const inputWindow = new BrowserWindow({
+            width: 450,
+            height: 200,
+            title: 'Set Branch ID',
+            modal: true,
+            show: false,
+            resizable: false,
+            minimizable: false,
+            maximizable: false,
+            webPreferences: {
+                nodeIntegration: false,
+                contextIsolation: true,
+                preload: path.join(__dirname, 'preload.js')
+            }
+        });
+
+        const htmlContent = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <style>
+                    * { box-sizing: border-box; margin: 0; padding: 0; }
+                    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 24px; background: #f5f5f5; }
+                    h2 { font-size: 16px; margin-bottom: 8px; }
+                    p { font-size: 13px; color: #666; margin-bottom: 16px; }
+                    input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; margin-bottom: 16px; }
+                    input:focus { outline: none; border-color: #6366f1; }
+                    .buttons { display: flex; gap: 12px; justify-content: flex-end; }
+                    button { padding: 8px 20px; border: none; border-radius: 6px; font-size: 14px; cursor: pointer; }
+                    .primary { background: #6366f1; color: white; }
+                    .primary:hover { background: #4f46e5; }
+                    .secondary { background: #e5e5e5; }
+                    .secondary:hover { background: #d5d5d5; }
+                    .error { color: #dc2626; font-size: 12px; margin-top: -12px; margin-bottom: 12px; display: none; }
+                </style>
+            </head>
+            <body>
+                <h2>Enter Branch Name</h2>
+                <p>This identifies your hotel or branch for equipment requests.</p>
+                <input type="text" id="branchId" placeholder="e.g., La Jolla Marriott" autofocus>
+                <div class="error" id="error"></div>
+                <div class="buttons">
+                    <button class="secondary" onclick="cancel()">Quit</button>
+                    <button class="primary" onclick="save()">Save</button>
+                </div>
+                <script>
+                    const input = document.getElementById('branchId');
+                    const error = document.getElementById('error');
+                    input.addEventListener('keypress', (e) => { if (e.key === 'Enter') save(); });
+                    function save() {
+                        const value = input.value.trim();
+                        if (!value) {
+                            error.textContent = 'Please enter a branch name';
+                            error.style.display = 'block';
+                            return;
+                        }
+                        if (!/^[\\w\\s\\-]+$/.test(value)) {
+                            error.textContent = 'Only letters, numbers, spaces, and dashes allowed';
+                            error.style.display = 'block';
+                            return;
+                        }
+                        window.api.setBranchId(value).then(result => {
+                            if (result.success) {
+                                window.close();
+                            } else {
+                                error.textContent = result.error || 'Failed to save';
+                                error.style.display = 'block';
+                            }
+                        });
+                    }
+                    function cancel() {
+                        window.api.sendAppState({ action: 'quit' });
+                        window.close();
+                    }
+                </script>
+            </body>
+            </html>
+        `;
+
+        inputWindow.loadURL(`data:text/html;charset=UTF-8,${encodeURIComponent(htmlContent)}`);
+        inputWindow.once('ready-to-show', () => inputWindow.show());
+
+        let userQuit = false;
+
+        // Listen for quit signal
+        const quitHandler = (event: Electron.IpcMainEvent, state: any) => {
+            if (state?.action === 'quit') {
+                userQuit = true;
+                inputWindow.close();
+            }
+        };
+        ipcMain.on('app-state-response', quitHandler);
+
+        inputWindow.on('closed', () => {
+            ipcMain.off('app-state-response', quitHandler);
+            if (userQuit) {
+                resolve(false);
+            } else if (getBranchId()) {
+                resolve(true);
+            } else {
+                resolve(false);
+            }
+        });
+    });
+}
+
 app.whenReady().then(async () => {
+    // Initialize configuration
+    initConfig();
+
+    // Check for first run and prompt for branch ID
+    if (isFirstRun()) {
+        console.log('First run detected, prompting for branch ID...');
+        const continued = await promptForBranchId();
+        if (!continued) {
+            app.quit();
+            return;
+        }
+        console.log('Branch ID set:', getBranchId());
+    } else {
+        console.log('Branch ID:', getBranchId());
+    }
+
     console.log('Starting Python backend...');
 
     const backendStarted = await attemptBackendStart();

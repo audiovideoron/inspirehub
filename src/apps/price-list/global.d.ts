@@ -8,6 +8,8 @@ interface Window {
         getBackendStatus(): Promise<string>;
         getEquipmentPort(): Promise<number | null>;
         getEquipmentStatus(): Promise<string>;
+        getBranchId(): Promise<string | null>;
+        setBranchId(branchId: string): Promise<{ success: boolean; error?: string }>;
         openFileDialog(): Promise<string | null>;
         saveFileDialog(defaultName: string): Promise<string | null>;
         showMessage(options: any): Promise<any>;
