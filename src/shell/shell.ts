@@ -66,6 +66,3 @@ function navigateToApp(appId: string): void {
 
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', initShell);
-
-// Empty export to make this a module
-export {};

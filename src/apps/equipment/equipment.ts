@@ -126,7 +126,7 @@ function switchTab(tabId: string): void {
 }
 
 async function connectToBackend(): Promise<void> {
-    updateBackendStatus('connecting', 'Connecting...');
+    updateEquipmentBackendStatus('connecting', 'Connecting...');
 
     try {
         const port = await window.api.getEquipmentPort();
@@ -142,19 +142,19 @@ async function connectToBackend(): Promise<void> {
             throw new Error('Health check failed');
         }
 
-        updateBackendStatus('connected', 'Connected');
+        updateEquipmentBackendStatus('connected', 'Connected');
 
         // Load initial data
         await loadEquipment();
 
     } catch (error) {
         console.error('Failed to connect to backend:', error);
-        updateBackendStatus('disconnected', 'Disconnected');
+        updateEquipmentBackendStatus('disconnected', 'Disconnected');
         equipmentGrid.innerHTML = '<div class="empty-state"><div class="empty-state-icon">!</div><div>Failed to connect to equipment backend</div></div>';
     }
 }
 
-function updateBackendStatus(status: string, text: string): void {
+function updateEquipmentBackendStatus(status: string, text: string): void {
     backendStatusEl.className = `backend-status ${status}`;
     backendStatusEl.querySelector('.status-text')!.textContent = text;
 }
@@ -467,6 +467,3 @@ function formatDisplayDate(dateStr: string): string {
 
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', initApp);
-
-// Empty export to make this a module (prevents global scope conflicts)
-export {};
