@@ -9,12 +9,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 npm run dev
 
 # Run Python backend standalone (opens browser to http://localhost:8080)
-uv run python python/backend.py
-uv run python python/backend.py --debug  # with debug.log
+uv run python python/price_list/backend.py
+uv run python python/price_list/backend.py --debug  # with debug.log
 
 # Test Python modules directly
-uv run python python/extract_prices.py [path/to/file.pdf]
-uv run python python/update_pdf.py
+uv run python python/price_list/extract_prices.py [path/to/file.pdf]
+uv run python python/price_list/update_pdf.py
 
 # Build for distribution
 npm run build:mac
@@ -25,22 +25,25 @@ npm run build:local:mac  # includes Python bundling
 
 ## Architecture
 
-Electron desktop app with Python backend for PDF processing.
+inspirehub is a shell hosting independent applications. Currently includes Price List Editor.
 
 ```
 Electron Main Process (src/main/)
-├── main.js           → Window management, menus, IPC handlers
-├── python-bridge.js  → Spawns/manages Python backend process
-└── preload.js        → Exposes safe APIs to renderer
+├── main.ts           → Window management, menus, IPC handlers
+├── python-bridge.ts  → Spawns/manages Python backend process
+└── preload.ts        → Exposes safe APIs to renderer
 
-Renderer Process (src/renderer/)
-├── index.html        → Price editing UI
-└── editor.js         → Frontend logic, API calls to backend
+Apps (src/apps/)
+└── price-list/       → Price List Editor app
+    ├── index.html    → Price editing UI
+    ├── editor.ts     → Frontend logic, API calls to backend
+    └── editor.css    → Styles
 
-Python Backend (python/)
-├── backend.py        → HTTP API server on localhost:8080
-├── extract_prices.py → PyMuPDF price extraction
-└── update_pdf.py     → PyMuPDF redaction + text insertion
+Python Backends (python/)
+└── price_list/       → Price List backend
+    ├── backend.py    → HTTP API server on localhost:8080
+    ├── extract_prices.py → PyMuPDF price extraction
+    └── update_pdf.py → PyMuPDF redaction + text insertion
 ```
 
 **Data Flow:**

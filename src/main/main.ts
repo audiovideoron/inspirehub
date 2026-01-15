@@ -69,12 +69,12 @@ function createWindow(): void {
         }
     });
 
-    // Load the renderer
-    // In dev mode, HTML is in src/renderer; in production, it's in the asar
+    // Load the price-list app (default app for now)
+    // In dev mode, HTML is in src/apps/price-list; in production, it's in the asar
     const isDev = process.env.NODE_ENV === 'development';
     const rendererPath = isDev
-        ? path.join(__dirname, '../../src/renderer/index.html')
-        : path.join(__dirname, '../renderer/index.html');
+        ? path.join(__dirname, '../../src/apps/price-list/index.html')
+        : path.join(__dirname, '../apps/price-list/index.html');
     mainWindow.loadFile(rendererPath);
 
     // Open DevTools only in development (use app.isPackaged for reliable check)

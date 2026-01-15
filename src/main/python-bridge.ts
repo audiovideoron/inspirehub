@@ -93,7 +93,7 @@ function getPythonPath(): PythonPathInfo {
             );
         }
 
-        const backendScript = path.join(projectRoot, 'python/backend.py');
+        const backendScript = path.join(projectRoot, 'python/price_list/backend.py');
         if (!fs.existsSync(backendScript)) {
             throw new Error(`Python backend script not found at: ${backendScript}`);
         }
