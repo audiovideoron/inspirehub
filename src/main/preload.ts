@@ -148,6 +148,18 @@ contextBridge.exposeInMainWorld('api', {
         };
     })(),
 
+    // Logging (file-based)
+    logError: (source: string, error: {
+        message: string;
+        stack?: string;
+        filename?: string;
+        lineno?: number;
+        colno?: number;
+    }): Promise<void> => safeInvoke('log-renderer-error', source, error),
+    logConsole: (source: string, level: string, message: string, args?: any[]): Promise<void> =>
+        safeInvoke('log-renderer-console', source, level, message, args),
+    getLogFilePath: (): Promise<string> => safeInvoke('get-log-file-path'),
+
     // Bug reporting
     submitBugReport: (bugData: any): Promise<any> => safeInvoke('submit-bug-report', bugData),
     searchSimilarBugs: (query: string): Promise<any> => safeInvoke('search-similar-bugs', query),

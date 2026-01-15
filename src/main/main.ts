@@ -6,6 +6,7 @@ import {
 } from './python-bridge';
 import { BugReporter } from './bug-reporter';
 import { initConfig, isFirstRun, getBranchId, setBranchId } from './config-manager';
+import { initFileLogger, mainLog, logRendererError, logRendererConsole, getLogFilePath } from './file-logger';
 
 let mainWindow: BrowserWindow | null = null;
 let bugReporter: BugReporter | null = null;
@@ -74,11 +75,8 @@ function createWindow(): void {
     });
 
     // Load the shell (which contains navigation and embeds apps)
-    // In dev mode, HTML is in src/shell; in production, it's in the asar
-    const isDev = process.env.NODE_ENV === 'development';
-    const shellPath = isDev
-        ? path.join(__dirname, '../../src/shell/index.html')
-        : path.join(__dirname, '../shell/index.html');
+    // Both dev and prod load from dist/shell/ (compiled output)
+    const shellPath = path.join(__dirname, '../shell/index.html');
     mainWindow.loadFile(shellPath);
 
     // Open DevTools only in development (use app.isPackaged for reliable check)
@@ -229,6 +227,25 @@ ipcMain.handle('set-branch-id', (event: IpcMainInvokeEvent, branchId: string): {
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
+});
+
+// Logging IPC handlers
+ipcMain.handle('log-renderer-error', (event: IpcMainInvokeEvent, source: string, error: {
+    message: string;
+    stack?: string;
+    filename?: string;
+    lineno?: number;
+    colno?: number;
+}): void => {
+    logRendererError(source, error);
+});
+
+ipcMain.handle('log-renderer-console', (event: IpcMainInvokeEvent, source: string, level: string, message: string, args?: any[]): void => {
+    logRendererConsole(source, level, message, args);
+});
+
+ipcMain.handle('get-log-file-path', (): string => {
+    return getLogFilePath();
 });
 
 ipcMain.handle('open-file-dialog', async (): Promise<string | null> => {
@@ -620,6 +637,10 @@ async function promptForBranchId(): Promise<boolean> {
 }
 
 app.whenReady().then(async () => {
+    // Initialize file logger first
+    initFileLogger();
+    mainLog.info('App starting', { version: app.getVersion() });
+
     // Initialize configuration
     initConfig();
 

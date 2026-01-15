@@ -24,6 +24,12 @@ class BugReportModal {
         // Create modal HTML
         this.createModal();
 
+        // Bug reporting APIs only available in main window, not in iframes
+        if (!window.api?.onShowBugReportModal) {
+            console.log('Bug reporting not available (running in iframe)');
+            return;
+        }
+
         // Listen for show modal event
         window.api.onShowBugReportModal(() => {
             this.show();

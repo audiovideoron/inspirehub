@@ -110,8 +110,23 @@ let healthCheckIntervalId: NodeJS.Timeout | null = null;
 
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
+    // Wait a moment for API bootstrap to initialize (if in iframe)
+    if (!window.api) {
+        await new Promise(resolve => setTimeout(resolve, 50));
+    }
+
+    if (!window.api) {
+        console.error('API not available');
+        showBackendError('Unable to connect to application backend.');
+        return;
+    }
+
     // Reset bug session timestamp (filters out logs from before this load/reload)
-    await window.api.resetBugSession();
+    try {
+        await window.api.resetBugSession();
+    } catch (e) {
+        // Ignore - may not be available in all contexts
+    }
 
     // Get Python backend port
     pythonPort = await window.api.getPythonPort();
