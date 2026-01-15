@@ -45,6 +45,10 @@ contextBridge.exposeInMainWorld('api', {
     // Get the Python backend status
     getBackendStatus: (): Promise<any> => safeInvoke('get-backend-status'),
 
+    // Equipment backend
+    getEquipmentPort: (): Promise<any> => safeInvoke('get-equipment-port'),
+    getEquipmentStatus: (): Promise<any> => safeInvoke('get-equipment-status'),
+
     // File dialogs
     openFileDialog: (): Promise<any> => safeInvoke('open-file-dialog'),
     saveFileDialog: (defaultName: string): Promise<any> => safeInvoke('save-file-dialog', defaultName),

@@ -4,7 +4,7 @@
   "description": "Inspire Solutions hub - price lists, equipment, and more",
   "main": "dist/main/main.js",
   "scripts": {
-    "compile": "tsc && node -e \"const fs=require('fs');const path=require('path');fs.mkdirSync('dist/apps/price-list',{recursive:true});['index.html','editor.css','bug-report-modal.css'].forEach(f=>fs.copyFileSync(path.join('src/apps/price-list',f),path.join('dist/apps/price-list',f)))\"",
+    "compile": "tsc && node scripts/copy-assets.js",
     "compile:watch": "tsc --watch",
     "prestart": "npm run compile",
     "start": "electron .",
