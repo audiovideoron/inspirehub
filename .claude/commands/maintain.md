@@ -1,5 +1,5 @@
 ---
-description: "Fix all issues: scan → fix → push (use --fix-only to skip scanning)"
+description: "Fix all issues: scan → fix → push (use --fix-only to skip scanning, --app to scope)"
 allowed-tools: ["Task", "Bash", "Read", "Grep"]
 ---
 
@@ -10,6 +10,7 @@ Scan for issues, fix them, push.
 ## Arguments
 
 - `--fix-only` or `--no-scan`: Skip the scan step and only fix existing issues
+- `--app=<name>`: Only fix issues for a specific app (equipment, price-list, shell)
 
 ## Workflow
 
@@ -26,8 +27,16 @@ Task: codebase-analyzer
 
 Wait for both to complete.
 
+Note: Scanners analyze the entire codebase. App filtering applies to fixing, not scanning.
+
 ### 2. Get Ready Work
 
+**If `--app=<name>` is provided:**
+```bash
+bd ready --label=app:<name> --json
+```
+
+**Otherwise (all apps):**
 ```bash
 bd ready --json
 ```

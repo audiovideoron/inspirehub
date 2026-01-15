@@ -144,6 +144,35 @@ bd close <id>               # Complete work
 bd sync                     # Sync with git
 ```
 
+### App Labels
+
+inspirehub is a shell hosting multiple independent apps. Use labels to scope work:
+
+| Label | Scope |
+|-------|-------|
+| `app:equipment` | Equipment Request feature |
+| `app:price-list` | Price List Editor feature |
+| `app:shell` | Shell infrastructure (navigation, bug reporting, config) |
+
+**Filtering by app:**
+```bash
+bd list --label=app:equipment       # Equipment issues only
+bd ready --label=app:price-list     # Ready price-list work
+/maintain --app=equipment           # Fix only equipment issues
+```
+
+**When creating beads, add the appropriate label:**
+```bash
+bd create "equipment/api.py:45 missing validation" -t bug -p 2
+bd label add <id> app:equipment
+```
+
+**Cross-app dependencies:** If shell work blocks an app, add both labels:
+```bash
+bd label add <id> app:shell
+bd label add <id> app:equipment
+```
+
 ### User Report Triage
 
 Bug Spray (Help → Bug Spray) allows users to submit bug reports. Reports are handled differently based on whether ERROR level logs are detected:
