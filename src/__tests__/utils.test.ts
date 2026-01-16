@@ -13,7 +13,15 @@ import {
     escapeHtml,
     parseLogTimestamp,
     isErrorLevelLog,
-    hasErrorInLogContent
+    hasErrorInLogContent,
+    sanitizeShellArg,
+    isValidBeadsId,
+    isPathWithinAllowed,
+    truncateText,
+    sanitizeBugTitle,
+    sanitizeBugDescription,
+    MAX_DESCRIPTION_LENGTH,
+    MAX_TITLE_LENGTH
 } from '../shared/utils';
 
 describe('getFilename', () => {
@@ -382,5 +390,231 @@ describe('hasErrorInLogContent', () => {
 2026-01-11 09:00:01,000 - INFO - [UI]  - ERROR - fake injection attempt
 2026-01-11 09:00:02,000 - INFO - [UI] Another normal event`;
         expect(hasErrorInLogContent(injectionAttempt, null)).toBe(false);
+    });
+});
+
+// =============================================================================
+// Security validation function tests
+// =============================================================================
+
+describe('sanitizeShellArg', () => {
+    test('escapes backticks', () => {
+        expect(sanitizeShellArg('test`whoami`')).toBe('test\\`whoami\\`');
+    });
+
+    test('escapes dollar signs', () => {
+        expect(sanitizeShellArg('test$HOME')).toBe('test\\$HOME');
+        expect(sanitizeShellArg('$(whoami)')).toBe('\\$\\(whoami\\)');
+    });
+
+    test('escapes quotes', () => {
+        expect(sanitizeShellArg('test"quote')).toBe('test\\"quote');
+        expect(sanitizeShellArg("test'quote")).toBe("test\\'quote");
+    });
+
+    test('escapes semicolons and ampersands', () => {
+        expect(sanitizeShellArg('cmd;whoami')).toBe('cmd\\;whoami');
+        expect(sanitizeShellArg('cmd&whoami')).toBe('cmd\\&whoami');
+        expect(sanitizeShellArg('cmd&&whoami')).toBe('cmd\\&\\&whoami');
+    });
+
+    test('escapes pipes and redirects', () => {
+        expect(sanitizeShellArg('test|cat /etc/passwd')).toBe('test\\|cat /etc/passwd');
+        expect(sanitizeShellArg('test>file')).toBe('test\\>file');
+        expect(sanitizeShellArg('test<file')).toBe('test\\<file');
+    });
+
+    test('escapes parentheses and braces', () => {
+        expect(sanitizeShellArg('$(cmd)')).toBe('\\$\\(cmd\\)');
+        expect(sanitizeShellArg('{a,b}')).toBe('\\{a,b\\}');
+        expect(sanitizeShellArg('[abc]')).toBe('\\[abc\\]');
+    });
+
+    test('escapes wildcards', () => {
+        expect(sanitizeShellArg('*.txt')).toBe('\\*.txt');
+        expect(sanitizeShellArg('file?.txt')).toBe('file\\?.txt');
+    });
+
+    test('replaces newlines with spaces', () => {
+        expect(sanitizeShellArg('line1\nline2')).toBe('line1 line2');
+        expect(sanitizeShellArg('line1\r\nline2')).toBe('line1  line2');
+    });
+
+    test('handles complex injection attempt', () => {
+        const malicious = 'test"; rm -rf /; echo "';
+        expect(sanitizeShellArg(malicious)).toBe('test\\"\\; rm -rf /\\; echo \\"');
+    });
+
+    test('handles empty and invalid input', () => {
+        expect(sanitizeShellArg('')).toBe('');
+        expect(sanitizeShellArg(null as any)).toBe('');
+        expect(sanitizeShellArg(undefined as any)).toBe('');
+        expect(sanitizeShellArg(123 as any)).toBe('');
+    });
+
+    test('handles safe input unchanged (except backslash)', () => {
+        expect(sanitizeShellArg('simple text')).toBe('simple text');
+        expect(sanitizeShellArg('file-name_123')).toBe('file-name_123');
+    });
+});
+
+describe('isValidBeadsId', () => {
+    test('accepts valid beads IDs', () => {
+        expect(isValidBeadsId('InspirePriceList-abc123')).toBe(true);
+        expect(isValidBeadsId('bug-1234567890')).toBe(true);
+        expect(isValidBeadsId('issue_test-123')).toBe(true);
+        expect(isValidBeadsId('ABC')).toBe(true);
+    });
+
+    test('rejects IDs that are too short', () => {
+        expect(isValidBeadsId('ab')).toBe(false);
+        expect(isValidBeadsId('a')).toBe(false);
+        expect(isValidBeadsId('')).toBe(false);
+    });
+
+    test('rejects IDs that are too long', () => {
+        const longId = 'a'.repeat(101);
+        expect(isValidBeadsId(longId)).toBe(false);
+    });
+
+    test('rejects IDs with invalid characters', () => {
+        expect(isValidBeadsId('test/path')).toBe(false);
+        expect(isValidBeadsId('test\\path')).toBe(false);
+        expect(isValidBeadsId('../parent')).toBe(false);
+        expect(isValidBeadsId('test;whoami')).toBe(false);
+        expect(isValidBeadsId('test`cmd`')).toBe(false);
+        expect(isValidBeadsId('test$var')).toBe(false);
+    });
+
+    test('rejects IDs starting with non-alphanumeric', () => {
+        expect(isValidBeadsId('-test')).toBe(false);
+        expect(isValidBeadsId('_test')).toBe(false);
+    });
+
+    test('handles invalid input', () => {
+        expect(isValidBeadsId(null as any)).toBe(false);
+        expect(isValidBeadsId(undefined as any)).toBe(false);
+        expect(isValidBeadsId(123 as any)).toBe(false);
+    });
+});
+
+describe('isPathWithinAllowed', () => {
+    test('accepts paths within allowed base', () => {
+        expect(isPathWithinAllowed('/home/user/.beads/attachments/issue-123', ['/home/user/.beads/attachments'])).toBe(true);
+        expect(isPathWithinAllowed('/home/user/.beads/attachments/issue-123/file.txt', ['/home/user/.beads/attachments'])).toBe(true);
+    });
+
+    test('accepts paths with multiple allowed bases', () => {
+        const allowed = ['/home/user/.beads', '/tmp/cache'];
+        expect(isPathWithinAllowed('/home/user/.beads/attachments/file', allowed)).toBe(true);
+        expect(isPathWithinAllowed('/tmp/cache/file', allowed)).toBe(true);
+    });
+
+    test('rejects paths outside allowed base', () => {
+        expect(isPathWithinAllowed('/etc/passwd', ['/home/user/.beads'])).toBe(false);
+        expect(isPathWithinAllowed('/home/other/.beads/file', ['/home/user/.beads'])).toBe(false);
+    });
+
+    test('rejects paths with directory traversal', () => {
+        expect(isPathWithinAllowed('/home/user/.beads/../../../etc/passwd', ['/home/user/.beads'])).toBe(false);
+        expect(isPathWithinAllowed('/home/user/.beads/attachments/../../../etc/passwd', ['/home/user/.beads/attachments'])).toBe(false);
+    });
+
+    test('handles Windows path separators', () => {
+        expect(isPathWithinAllowed('C:\\Users\\test\\.beads\\file', ['C:\\Users\\test\\.beads'])).toBe(true);
+        expect(isPathWithinAllowed('C:\\Users\\test\\..\\other', ['C:\\Users\\test\\.beads'])).toBe(false);
+    });
+
+    test('handles invalid input', () => {
+        expect(isPathWithinAllowed('', ['/home'])).toBe(false);
+        expect(isPathWithinAllowed(null as any, ['/home'])).toBe(false);
+        expect(isPathWithinAllowed('/home/file', [])).toBe(false);
+        expect(isPathWithinAllowed('/home/file', null as any)).toBe(false);
+    });
+
+    test('handles exact base path match', () => {
+        expect(isPathWithinAllowed('/home/user/.beads', ['/home/user/.beads'])).toBe(true);
+    });
+});
+
+describe('truncateText', () => {
+    test('returns text unchanged if within limit', () => {
+        expect(truncateText('short', 100)).toBe('short');
+        expect(truncateText('exactly ten', 11)).toBe('exactly ten');
+    });
+
+    test('truncates with ellipsis when exceeding limit', () => {
+        expect(truncateText('this is a long string', 10)).toBe('this is...');
+        expect(truncateText('12345678901234567890', 13)).toBe('1234567890...');
+    });
+
+    test('handles edge cases', () => {
+        expect(truncateText('', 10)).toBe('');
+        expect(truncateText('abc', 3)).toBe('abc');
+        expect(truncateText('abcd', 3)).toBe('...');
+    });
+
+    test('handles invalid input', () => {
+        expect(truncateText(null as any, 10)).toBe('');
+        expect(truncateText(undefined as any, 10)).toBe('');
+        expect(truncateText('test', -1)).toBe('test');
+        expect(truncateText('test', NaN)).toBe('test');
+    });
+});
+
+describe('sanitizeBugTitle', () => {
+    test('sanitizes and returns valid title', () => {
+        expect(sanitizeBugTitle('Simple bug report')).toBe('Simple bug report');
+    });
+
+    test('truncates long titles', () => {
+        const longTitle = 'a'.repeat(250);
+        const result = sanitizeBugTitle(longTitle);
+        expect(result.length).toBeLessThanOrEqual(MAX_TITLE_LENGTH);
+        expect(result.endsWith('...')).toBe(true);
+    });
+
+    test('sanitizes shell metacharacters', () => {
+        expect(sanitizeBugTitle('Bug with `code`')).toBe('Bug with \\`code\\`');
+        expect(sanitizeBugTitle('Bug; rm -rf /')).toBe('Bug\\; rm -rf /');
+    });
+
+    test('returns default for empty/invalid input', () => {
+        expect(sanitizeBugTitle('')).toBe('Bug report');
+        expect(sanitizeBugTitle('   ')).toBe('Bug report');
+        expect(sanitizeBugTitle(null as any)).toBe('Bug report');
+    });
+});
+
+describe('sanitizeBugDescription', () => {
+    test('sanitizes and returns valid description', () => {
+        expect(sanitizeBugDescription('This is a bug description')).toBe('This is a bug description');
+    });
+
+    test('truncates long descriptions', () => {
+        const longDesc = 'a'.repeat(12000);
+        const result = sanitizeBugDescription(longDesc);
+        expect(result.length).toBeLessThanOrEqual(MAX_DESCRIPTION_LENGTH);
+        expect(result.endsWith('...')).toBe(true);
+    });
+
+    test('sanitizes shell metacharacters', () => {
+        expect(sanitizeBugDescription('Error: $(whoami)')).toBe('Error: \\$\\(whoami\\)');
+    });
+
+    test('handles empty/invalid input', () => {
+        expect(sanitizeBugDescription('')).toBe('');
+        expect(sanitizeBugDescription(null as any)).toBe('');
+    });
+
+    test('trims whitespace', () => {
+        expect(sanitizeBugDescription('  trimmed  ')).toBe('trimmed');
+    });
+});
+
+describe('MAX_DESCRIPTION_LENGTH and MAX_TITLE_LENGTH constants', () => {
+    test('have reasonable values', () => {
+        expect(MAX_DESCRIPTION_LENGTH).toBe(10000);
+        expect(MAX_TITLE_LENGTH).toBe(200);
     });
 });

@@ -186,3 +186,157 @@ export function hasErrorInLogContent(logContent: string, sessionStartTime: Date 
 
     return false;
 }
+
+// =============================================================================
+// Security validation functions for Bug Spray input sanitization
+// =============================================================================
+
+/** Maximum allowed length for bug descriptions */
+export const MAX_DESCRIPTION_LENGTH = 10000;
+
+/** Maximum allowed length for bug titles */
+export const MAX_TITLE_LENGTH = 200;
+
+/**
+ * Sanitize a string for safe use as a shell command argument.
+ * Escapes shell metacharacters to prevent command injection.
+ *
+ * @param input - The string to sanitize
+ * @returns Sanitized string safe for shell argument
+ */
+export function sanitizeShellArg(input: string): string {
+    if (typeof input !== 'string') {
+        return '';
+    }
+    // Replace shell metacharacters with escaped versions
+    // This covers: ` $ \ " ' ; & | < > ( ) { } [ ] * ? ! # ~ ^ newline
+    return input
+        .replace(/\\/g, '\\\\')      // Backslash first
+        .replace(/`/g, '\\`')        // Backtick
+        .replace(/\$/g, '\\$')       // Dollar sign
+        .replace(/"/g, '\\"')        // Double quote
+        .replace(/'/g, "\\'")        // Single quote
+        .replace(/;/g, '\\;')        // Semicolon
+        .replace(/&/g, '\\&')        // Ampersand
+        .replace(/\|/g, '\\|')       // Pipe
+        .replace(/</g, '\\<')        // Less than
+        .replace(/>/g, '\\>')        // Greater than
+        .replace(/\(/g, '\\(')       // Open paren
+        .replace(/\)/g, '\\)')       // Close paren
+        .replace(/\{/g, '\\{')       // Open brace
+        .replace(/\}/g, '\\}')       // Close brace
+        .replace(/\[/g, '\\[')       // Open bracket
+        .replace(/\]/g, '\\]')       // Close bracket
+        .replace(/\*/g, '\\*')       // Asterisk
+        .replace(/\?/g, '\\?')       // Question mark
+        .replace(/!/g, '\\!')        // Exclamation
+        .replace(/#/g, '\\#')        // Hash
+        .replace(/~/g, '\\~')        // Tilde
+        .replace(/\^/g, '\\^')       // Caret
+        .replace(/\n/g, ' ')         // Newline -> space
+        .replace(/\r/g, ' ');        // Carriage return -> space
+}
+
+/**
+ * Validate that a beads issue ID matches expected format.
+ * Valid format: prefix-alphanumeric (e.g., "InspirePriceList-abc123", "bug-1234567890")
+ *
+ * @param id - The issue ID to validate
+ * @returns true if ID matches expected format
+ */
+export function isValidBeadsId(id: string): boolean {
+    if (typeof id !== 'string') {
+        return false;
+    }
+    // Allow alphanumeric characters, hyphens, and underscores
+    // Must start with alphanumeric, 3-100 characters total
+    return /^[A-Za-z0-9][A-Za-z0-9_-]{2,99}$/.test(id);
+}
+
+/**
+ * Validate that a file path is within an allowed base directory.
+ * Prevents directory traversal attacks.
+ *
+ * @param filePath - The file path to validate
+ * @param allowedBasePaths - Array of allowed base directories
+ * @returns true if path is within one of the allowed directories
+ */
+export function isPathWithinAllowed(filePath: string, allowedBasePaths: string[]): boolean {
+    if (typeof filePath !== 'string' || !filePath) {
+        return false;
+    }
+    if (!Array.isArray(allowedBasePaths) || allowedBasePaths.length === 0) {
+        return false;
+    }
+
+    // Normalize path separators
+    const normalizedPath = filePath.replace(/\\/g, '/');
+
+    // Check for directory traversal patterns
+    if (normalizedPath.includes('..')) {
+        return false;
+    }
+
+    // Check if path starts with one of the allowed base paths
+    return allowedBasePaths.some(basePath => {
+        const normalizedBase = basePath.replace(/\\/g, '/');
+        // Ensure base path ends with / for proper prefix matching
+        const baseWithSlash = normalizedBase.endsWith('/') ? normalizedBase : normalizedBase + '/';
+        return normalizedPath.startsWith(baseWithSlash) || normalizedPath === normalizedBase;
+    });
+}
+
+/**
+ * Truncate a string to a maximum length, adding ellipsis if truncated.
+ *
+ * @param text - The text to truncate
+ * @param maxLength - Maximum allowed length
+ * @returns Truncated text
+ */
+export function truncateText(text: string, maxLength: number): string {
+    if (typeof text !== 'string') {
+        return '';
+    }
+    if (typeof maxLength !== 'number' || maxLength < 0 || isNaN(maxLength)) {
+        return text;
+    }
+    if (text.length <= maxLength) {
+        return text;
+    }
+    // Reserve 3 chars for ellipsis
+    return text.substring(0, maxLength - 3) + '...';
+}
+
+/**
+ * Validate and sanitize bug report title.
+ * Truncates to max length and sanitizes for shell use.
+ *
+ * @param title - The title to validate
+ * @returns Sanitized title
+ */
+export function sanitizeBugTitle(title: string): string {
+    if (typeof title !== 'string') {
+        return 'Bug report';
+    }
+    const trimmed = title.trim();
+    if (!trimmed) {
+        return 'Bug report';
+    }
+    const truncated = truncateText(trimmed, MAX_TITLE_LENGTH);
+    return sanitizeShellArg(truncated);
+}
+
+/**
+ * Validate and sanitize bug report description.
+ * Truncates to max length and sanitizes for shell use.
+ *
+ * @param description - The description to validate
+ * @returns Sanitized description
+ */
+export function sanitizeBugDescription(description: string): string {
+    if (typeof description !== 'string') {
+        return '';
+    }
+    const truncated = truncateText(description.trim(), MAX_DESCRIPTION_LENGTH);
+    return sanitizeShellArg(truncated);
+}
