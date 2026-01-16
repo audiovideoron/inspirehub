@@ -59,11 +59,11 @@ jobs:
             --workpath build \
             --specpath build \
             --clean --noconfirm \
-            --add-data "${{ github.workspace }}/python/extract_prices.py:." \
-            --add-data "${{ github.workspace }}/python/update_pdf.py:." \
+            --add-data "${{ github.workspace }}/python/price_list/extract_prices.py:." \
+            --add-data "${{ github.workspace }}/python/price_list/update_pdf.py:." \
             --hidden-import fitz \
             --hidden-import pymupdf \
-            python/backend.py
+            python/price_list/backend.py
 
       - name: Build Python backend (Windows)
         if: matrix.platform == 'win'
@@ -73,11 +73,11 @@ jobs:
             --workpath build `
             --specpath build `
             --clean --noconfirm `
-            --add-data "${{ github.workspace }}\python\extract_prices.py;." `
-            --add-data "${{ github.workspace }}\python\update_pdf.py;." `
+            --add-data "${{ github.workspace }}\python\price_list\extract_prices.py;." `
+            --add-data "${{ github.workspace }}\python\price_list\update_pdf.py;." `
             --hidden-import fitz `
             --hidden-import pymupdf `
-            python/backend.py
+            python/price_list/backend.py
 
       - name: Build Electron app (macOS)
         if: matrix.platform == 'mac'
