@@ -6,6 +6,12 @@
  * - User Mode: Read-only view of submitted reports (in packaged app)
  */
 
+// IIFE to avoid global scope collisions with other apps
+(function() {
+
+// Logging prefix for easy filtering in logs
+const LOG_PREFIX = 'Bug Spray App:';
+
 // State
 let isDev = false;
 let reports: BugReport[] = [];
@@ -34,8 +40,10 @@ let pollInterval: number | null = null;
  * Initialize the app
  */
 async function initApp(): Promise<void> {
+    console.warn(LOG_PREFIX, 'Initializing...');
+
     // Get DOM elements
-    modeBadge = document.getElementById('modeBadge')!;
+    modeBadge = document.getElementById('modeBadge')!
     devTabs = document.getElementById('devTabs')!;
     devFilters = document.getElementById('devFilters')!;
     reportsList = document.getElementById('reportsList')!;
@@ -49,6 +57,7 @@ async function initApp(): Promise<void> {
 
     // Detect mode
     isDev = await window.api.isDevelopmentMode();
+    console.warn(LOG_PREFIX, `Mode: ${isDev ? 'DEV' : 'USER'}`);
     setupUI();
 
     // Set up event listeners
@@ -59,6 +68,7 @@ async function initApp(): Promise<void> {
 
     // Start polling when visible
     startPolling();
+    console.warn(LOG_PREFIX, 'Initialized successfully');
 }
 
 /**
@@ -172,6 +182,7 @@ async function loadReports(): Promise<void> {
         }
 
         reports = await window.api.getBugReports(filters);
+        console.warn(LOG_PREFIX, `Loaded ${reports.length} reports`, { tab: currentTab, filters });
         renderReports();
 
         // Update triage tab badge
@@ -192,7 +203,7 @@ async function loadReports(): Promise<void> {
             }
         }
     } catch (error) {
-        console.error('Failed to load reports:', error);
+        console.warn(LOG_PREFIX, 'ERROR loading reports:', error);
         reportsList.innerHTML = `
             <div class="empty-state">
                 <div class="empty-state-icon">
@@ -500,5 +511,4 @@ function debounce<T extends (...args: any[]) => any>(fn: T, delay: number): (...
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', initApp);
 
-// Make this a module to avoid global scope collisions with other apps
-export {};
+})(); // End IIFE

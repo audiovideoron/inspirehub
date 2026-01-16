@@ -3,6 +3,9 @@
  * Handles equipment browsing, availability checking, and reservation management
  */
 
+// IIFE to avoid global scope collisions with other apps
+(function() {
+
 // Type definitions
 interface Equipment {
     id: number;
@@ -484,5 +487,4 @@ function formatDisplayDate(dateStr: string): string {
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', initApp);
 
-// Make this a module to avoid global scope collisions with other apps
-export {};
+})(); // End IIFE
