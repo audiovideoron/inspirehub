@@ -240,16 +240,19 @@ class TestUpdatePrices:
         assert len(result["updated"]) == 1
         assert result["updated"][0]["new_text"] == "$650"
 
+    @patch("update_pdf.os.close")
+    @patch("update_pdf.tempfile.mkstemp")
     @patch("update_pdf.os.path.getsize")
     @patch("update_pdf.os.path.exists")
     @patch("update_pdf.os.replace")
     @patch("update_pdf.get_font_path")
     @patch("update_pdf.fitz")
-    def test_update_price_with_hr_suffix(self, mock_fitz, mock_get_font, mock_replace, mock_exists, mock_getsize):
+    def test_update_price_with_hr_suffix(self, mock_fitz, mock_get_font, mock_replace, mock_exists, mock_getsize, mock_mkstemp, mock_close):
         """Test updating a price with /hr suffix."""
         mock_get_font.return_value = None
         mock_exists.return_value = True  # Output file exists after save
         mock_getsize.return_value = 1024  # Output file has content
+        mock_mkstemp.return_value = (999, "/tmp/mock_update_pdf.pdf")
 
         mock_doc = MagicMock()
         mock_fitz.open.return_value.__enter__.return_value = mock_doc
@@ -282,16 +285,19 @@ class TestUpdatePrices:
         assert len(result["updated"]) == 1
         assert result["updated"][0]["new_text"] == "$125/hr"
 
+    @patch("update_pdf.os.close")
+    @patch("update_pdf.tempfile.mkstemp")
     @patch("update_pdf.os.path.getsize")
     @patch("update_pdf.os.path.exists")
     @patch("update_pdf.os.replace")
     @patch("update_pdf.get_font_path")
     @patch("update_pdf.fitz")
-    def test_update_multiple_prices_same_page(self, mock_fitz, mock_get_font, mock_replace, mock_exists, mock_getsize):
+    def test_update_multiple_prices_same_page(self, mock_fitz, mock_get_font, mock_replace, mock_exists, mock_getsize, mock_mkstemp, mock_close):
         """Test updating multiple prices on the same page."""
         mock_get_font.return_value = None
         mock_exists.return_value = True  # Output file exists after save
         mock_getsize.return_value = 1024  # Output file has content
+        mock_mkstemp.return_value = (999, "/tmp/mock_update_pdf.pdf")
 
         mock_doc = MagicMock()
         mock_fitz.open.return_value.__enter__.return_value = mock_doc
@@ -338,16 +344,19 @@ class TestUpdatePrices:
         # Insert text should be called twice
         assert mock_page.insert_text.call_count == 2
 
+    @patch("update_pdf.os.close")
+    @patch("update_pdf.tempfile.mkstemp")
     @patch("update_pdf.os.path.getsize")
     @patch("update_pdf.os.path.exists")
     @patch("update_pdf.os.replace")
     @patch("update_pdf.get_font_path")
     @patch("update_pdf.fitz")
-    def test_update_prices_multiple_pages(self, mock_fitz, mock_get_font, mock_replace, mock_exists, mock_getsize):
+    def test_update_prices_multiple_pages(self, mock_fitz, mock_get_font, mock_replace, mock_exists, mock_getsize, mock_mkstemp, mock_close):
         """Test updating prices on multiple pages."""
         mock_get_font.return_value = None
         mock_exists.return_value = True  # Output file exists after save
         mock_getsize.return_value = 1024  # Output file has content
+        mock_mkstemp.return_value = (999, "/tmp/mock_update_pdf.pdf")
 
         mock_doc = MagicMock()
         mock_fitz.open.return_value.__enter__.return_value = mock_doc
@@ -392,16 +401,19 @@ class TestUpdatePrices:
         mock_page0.apply_redactions.assert_called_once()
         mock_page1.apply_redactions.assert_called_once()
 
+    @patch("update_pdf.os.close")
+    @patch("update_pdf.tempfile.mkstemp")
     @patch("update_pdf.os.path.getsize")
     @patch("update_pdf.os.path.exists")
     @patch("update_pdf.os.replace")
     @patch("update_pdf.get_font_path")
     @patch("update_pdf.fitz")
-    def test_insert_text_failure(self, mock_fitz, mock_get_font, mock_replace, mock_exists, mock_getsize):
+    def test_insert_text_failure(self, mock_fitz, mock_get_font, mock_replace, mock_exists, mock_getsize, mock_mkstemp, mock_close):
         """Test handling of insert_text failure."""
         mock_get_font.return_value = None
         mock_exists.return_value = True  # Output file exists after save
         mock_getsize.return_value = 1024  # Output file has content
+        mock_mkstemp.return_value = (999, "/tmp/mock_update_pdf.pdf")
 
         mock_doc = MagicMock()
         mock_fitz.open.return_value.__enter__.return_value = mock_doc
@@ -437,11 +449,14 @@ class TestUpdatePrices:
         assert len(result["errors"]) == 1
         assert "insert_text returned -1" in result["errors"][0]
 
+    @patch("update_pdf.os.close")
+    @patch("update_pdf.tempfile.mkstemp")
     @patch("update_pdf.get_font_path")
     @patch("update_pdf.fitz")
-    def test_save_failure(self, mock_fitz, mock_get_font):
+    def test_save_failure(self, mock_fitz, mock_get_font, mock_mkstemp, mock_close):
         """Test handling of save failure (I/O error like permission denied)."""
         mock_get_font.return_value = None
+        mock_mkstemp.return_value = (999, "/tmp/mock_update_pdf.pdf")
 
         mock_doc = MagicMock()
         mock_fitz.open.return_value.__enter__.return_value = mock_doc
@@ -482,17 +497,20 @@ class TestUpdatePrices:
         assert len(result["errors"]) == 1
         assert "Failed to save PDF" in result["errors"][0]
 
+    @patch("update_pdf.os.close")
+    @patch("update_pdf.tempfile.mkstemp")
     @patch("update_pdf.os.path.getsize")
     @patch("update_pdf.os.path.exists")
     @patch("update_pdf.os.replace")
     @patch("update_pdf.get_font_path")
     @patch("update_pdf.fitz")
-    def test_uses_calibri_when_available(self, mock_fitz, mock_get_font, mock_replace, mock_exists, mock_getsize):
+    def test_uses_calibri_when_available(self, mock_fitz, mock_get_font, mock_replace, mock_exists, mock_getsize, mock_mkstemp, mock_close):
         """Test that Calibri font is used when available."""
         calibri_path = CALIBRI_FONT_PATHS.get(sys.platform)
         mock_get_font.return_value = calibri_path
         mock_exists.return_value = True  # Output file exists after save
         mock_getsize.return_value = 1024  # Output file has content
+        mock_mkstemp.return_value = (999, "/tmp/mock_update_pdf.pdf")
 
         mock_doc = MagicMock()
         mock_fitz.open.return_value.__enter__.return_value = mock_doc
@@ -528,16 +546,19 @@ class TestUpdatePrices:
         assert "fontfile" in call_kwargs
         assert call_kwargs["fontfile"] == calibri_path
 
+    @patch("update_pdf.os.close")
+    @patch("update_pdf.tempfile.mkstemp")
     @patch("update_pdf.os.path.getsize")
     @patch("update_pdf.os.path.exists")
     @patch("update_pdf.os.replace")
     @patch("update_pdf.get_font_path")
     @patch("update_pdf.fitz")
-    def test_empty_updates_list(self, mock_fitz, mock_get_font, mock_replace, mock_exists, mock_getsize):
+    def test_empty_updates_list(self, mock_fitz, mock_get_font, mock_replace, mock_exists, mock_getsize, mock_mkstemp, mock_close):
         """Test handling of empty updates list."""
         mock_get_font.return_value = None
         mock_exists.return_value = True  # Output file exists after save
         mock_getsize.return_value = 1024  # Output file has content
+        mock_mkstemp.return_value = (999, "/tmp/mock_update_pdf.pdf")
 
         mock_doc = MagicMock()
         mock_fitz.open.return_value.__enter__.return_value = mock_doc
@@ -816,16 +837,19 @@ class TestBboxValidation:
         assert len(result["errors"]) == 1
         assert "must be a number" in result["errors"][0]
 
+    @patch("update_pdf.os.close")
+    @patch("update_pdf.tempfile.mkstemp")
     @patch("update_pdf.os.path.getsize")
     @patch("update_pdf.os.path.exists")
     @patch("update_pdf.os.replace")
     @patch("update_pdf.get_font_path")
     @patch("update_pdf.fitz")
-    def test_rejects_coordinates_outside_page_bounds(self, mock_fitz, mock_get_font, mock_replace, mock_exists, mock_getsize):
+    def test_rejects_coordinates_outside_page_bounds(self, mock_fitz, mock_get_font, mock_replace, mock_exists, mock_getsize, mock_mkstemp, mock_close):
         """Test that coordinates outside page bounds are rejected."""
         mock_get_font.return_value = None
         mock_exists.return_value = True  # Output file exists after save
         mock_getsize.return_value = 1024  # Output file has content
+        mock_mkstemp.return_value = (999, "/tmp/mock_update_pdf.pdf")
 
         mock_doc = MagicMock()
         mock_fitz.open.return_value.__enter__.return_value = mock_doc
@@ -1026,16 +1050,19 @@ class TestNewValueValidation:
         assert "new_value" in result["errors"][0]
         assert "exceeds maximum" in result["errors"][0]
 
+    @patch("update_pdf.os.close")
+    @patch("update_pdf.tempfile.mkstemp")
     @patch("update_pdf.os.path.getsize")
     @patch("update_pdf.os.path.exists")
     @patch("update_pdf.os.replace")
     @patch("update_pdf.get_font_path")
     @patch("update_pdf.fitz")
-    def test_accepts_valid_new_value(self, mock_fitz, mock_get_font, mock_replace, mock_exists, mock_getsize):
+    def test_accepts_valid_new_value(self, mock_fitz, mock_get_font, mock_replace, mock_exists, mock_getsize, mock_mkstemp, mock_close):
         """Test that valid new_value is accepted."""
         mock_get_font.return_value = None
         mock_exists.return_value = True  # Output file exists after save
         mock_getsize.return_value = 1024  # Output file has content
+        mock_mkstemp.return_value = (999, "/tmp/mock_update_pdf.pdf")
 
         mock_doc = MagicMock()
         mock_fitz.open.return_value.__enter__.return_value = mock_doc
@@ -1068,16 +1095,19 @@ class TestNewValueValidation:
         assert len(result["updated"]) == 1
         assert result["updated"][0]["new_text"] == "$10,000,000"
 
+    @patch("update_pdf.os.close")
+    @patch("update_pdf.tempfile.mkstemp")
     @patch("update_pdf.os.path.getsize")
     @patch("update_pdf.os.path.exists")
     @patch("update_pdf.os.replace")
     @patch("update_pdf.get_font_path")
     @patch("update_pdf.fitz")
-    def test_accepts_small_positive_new_value(self, mock_fitz, mock_get_font, mock_replace, mock_exists, mock_getsize):
+    def test_accepts_small_positive_new_value(self, mock_fitz, mock_get_font, mock_replace, mock_exists, mock_getsize, mock_mkstemp, mock_close):
         """Test that small positive new_value is accepted."""
         mock_get_font.return_value = None
         mock_exists.return_value = True  # Output file exists after save
         mock_getsize.return_value = 1024  # Output file has content
+        mock_mkstemp.return_value = (999, "/tmp/mock_update_pdf.pdf")
 
         mock_doc = MagicMock()
         mock_fitz.open.return_value.__enter__.return_value = mock_doc
