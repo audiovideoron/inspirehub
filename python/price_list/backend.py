@@ -520,15 +520,15 @@ class APIHandler(BaseHTTPRequestHandler):
                         # Use boundaries to avoid matching product codes like "Model2025X"
                         def increment_year(match):
                             year = int(match.group(1))
-                            # Increment years 2020-2099 (2099 becomes 2100, which is valid)
-                            if 2020 <= year <= 2099:
+                            # Increment years 2000-2099 (2099 becomes 2100, which is valid)
+                            if 2000 <= year <= 2099:
                                 return match.group(0).replace(match.group(1), str(year + 1))
-                            return match.group(0)  # Leave years outside 2020-2099 unchanged
+                            return match.group(0)  # Leave years outside 2000-2099 unchanged
 
-                        # Match 4-digit years (2020-2099) that are standalone in filenames
+                        # Match 4-digit years (2000-2099) that are standalone in filenames
                         # Uses lookarounds to match years at start/end or surrounded by
                         # common filename separators (space, dash, underscore, dot)
-                        year_pattern = r'(?:^|(?<=[_\s.\-]))(20[2-9]\d)(?=[_\s.\-]|$)'
+                        year_pattern = r'(?:^|(?<=[_\s.\-]))(20\d{2})(?=[_\s.\-]|$)'
                         output_name = re.sub(year_pattern, increment_year, input_name, count=1)
                         if output_name == input_name:
                             output_name = f"{input_name}_updated"
