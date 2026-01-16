@@ -1,5 +1,8 @@
 /**
- * Bug Report Modal UI
+ * Bug Report Modal UI (Shell-level component)
+ *
+ * This modal runs in the shell window, not in app iframes.
+ * It communicates with the active app via postMessage to get context.
  */
 
 interface SimilarBug {
@@ -9,12 +12,24 @@ interface SimilarBug {
     description: string;
 }
 
+interface AppState {
+    appName: string;
+    currentFile?: string;
+    recentActions?: string[];
+    pricesLoaded?: number;
+    pricesModified?: number;
+    backendStatus?: string;
+    error?: string;
+}
+
 class BugReportModal {
     private isOpen: boolean = false;
     private similarBugs: SimilarBug[] = [];
     private searchDebounceTimer: NodeJS.Timeout | null = null;
     private hasErrorInLogs: boolean = false;
     private noteInputHandler: (() => void) | null = null;
+    private currentAppState: AppState | null = null;
+    private appStateResolve: ((state: AppState) => void) | null = null;
 
     constructor() {
         this.init();
@@ -24,21 +39,42 @@ class BugReportModal {
         // Create modal HTML
         this.createModal();
 
-        // Bug reporting APIs only available in main window, not in iframes
+        // Verify we're in the shell (main window), not an iframe
         if (!window.api?.onShowBugReportModal) {
-            console.log('Bug reporting not available (running in iframe)');
+            console.error('Bug Spray: API not available - modal initialization failed');
             return;
         }
 
-        // Listen for show modal event
+        // Listen for show modal event from main process
         window.api.onShowBugReportModal(() => {
+            console.warn('Bug Spray: Modal show triggered');
             this.show();
         });
 
-        // Listen for app state requests
+        // Listen for app state requests from main process (for bug submission)
         window.api.onRequestAppState(() => {
-            this.sendAppState();
+            console.warn('Bug Spray: Main process requested app state');
+            this.getAppStateFromIframe().then(state => {
+                console.warn('Bug Spray: Sending app state to main process');
+                window.api.sendAppState(state);
+            });
         });
+
+        // Listen for app state responses from iframes
+        window.addEventListener('message', (event) => {
+            if (event.data?.type === 'app-state-response') {
+                console.warn('Bug Spray: Received app state from iframe');
+                this.currentAppState = event.data.state;
+                this.updateContextDisplay();
+                // Resolve pending promise if any
+                if (this.appStateResolve) {
+                    this.appStateResolve(event.data.state);
+                    this.appStateResolve = null;
+                }
+            }
+        });
+
+        console.warn('Bug Spray: Modal initialized in shell');
     }
 
     private createModal(): void {
@@ -102,10 +138,86 @@ class BugReportModal {
             // Update UI based on error status
             this.updateNoteRequirement();
 
-            // Update context and activity
-            this.updateContext();
+            // Request app state from active iframe
+            this.requestAppState();
+
+            // Load activity logs
             this.loadActivity();
         }
+    }
+
+    private requestAppState(): void {
+        // Reset previous state
+        this.currentAppState = null;
+
+        // Find the active app iframe and request its state
+        const iframe = document.getElementById('app-frame') as HTMLIFrameElement;
+        if (iframe?.contentWindow) {
+            iframe.contentWindow.postMessage({ type: 'get-app-state' }, '*');
+        }
+
+        // Set a fallback context if no response
+        setTimeout(() => {
+            if (!this.currentAppState) {
+                this.currentAppState = { appName: 'Unknown' };
+                this.updateContextDisplay();
+            }
+        }, 500);
+    }
+
+    /**
+     * Get app state from iframe with promise-based timeout
+     * Used by main process when capturing bug context
+     */
+    private getAppStateFromIframe(): Promise<AppState> {
+        return new Promise((resolve) => {
+            // Store resolve function for when iframe responds
+            this.appStateResolve = resolve;
+
+            // Request state from iframe
+            const iframe = document.getElementById('app-frame') as HTMLIFrameElement;
+            if (iframe?.contentWindow) {
+                iframe.contentWindow.postMessage({ type: 'get-app-state' }, '*');
+            }
+
+            // Timeout after 3 seconds
+            setTimeout(() => {
+                if (this.appStateResolve) {
+                    console.warn('Bug Spray: App state request timed out');
+                    this.appStateResolve = null;
+                    resolve({ appName: 'Unknown', error: 'Timeout' });
+                }
+            }, 3000);
+        });
+    }
+
+    private updateContextDisplay(): void {
+        const contextEl = document.getElementById('bug-context');
+        if (!contextEl) return;
+
+        const state = this.currentAppState;
+        if (!state) {
+            contextEl.textContent = 'Loading context...';
+            return;
+        }
+
+        let text = '';
+
+        if (state.currentFile) {
+            const filename = state.currentFile.split('/').pop() || state.currentFile;
+            text = `While editing ${filename}`;
+
+            if (state.pricesModified && state.pricesModified > 0) {
+                text += ` (${state.pricesModified} price${state.pricesModified === 1 ? '' : 's'} changed)`;
+            }
+        } else if (state.appName) {
+            text = `In ${state.appName}`;
+        } else {
+            text = 'No file loaded';
+        }
+
+        contextEl.textContent = text;
+        contextEl.classList.remove('bug-hidden');
     }
 
     private updateNoteRequirement(): void {
@@ -158,30 +270,6 @@ class BugReportModal {
         }
     }
 
-    private updateContext(): void {
-        const contextEl = document.getElementById('bug-context');
-        if (!contextEl) return;
-
-        const appState = (window as any).getAppState?.() || {};
-
-        if (appState.currentPdfPath) {
-            const filename = appState.currentPdfPath.split('/').pop() || appState.currentPdfPath;
-            let text = `While editing ${filename}`;
-
-            if (appState.prices && appState.prices.length > 0) {
-                const modified = appState.prices.filter((p: any) => p.modified).length;
-                if (modified > 0) {
-                    text += ` (${modified} price${modified === 1 ? '' : 's'} changed)`;
-                }
-            }
-
-            contextEl.textContent = text;
-        } else {
-            contextEl.textContent = 'No PDF loaded';
-        }
-        contextEl.classList.remove('bug-hidden');
-    }
-
     private hide(): void {
         const modal = document.getElementById('bug-report-modal');
         if (modal) {
@@ -208,8 +296,9 @@ class BugReportModal {
             const activityEl = document.getElementById('bug-activity');
             if (activityEl) activityEl.innerHTML = '';
 
-            // Reset error state
+            // Reset state
             this.hasErrorInLogs = false;
+            this.currentAppState = null;
         }
     }
 
@@ -333,7 +422,8 @@ class BugReportModal {
             const response = await window.api.submitBugReport({
                 title,
                 userDescription: note,
-                includeScreenshot: true
+                includeScreenshot: true,
+                context: this.currentAppState
             });
 
             if (response.success) {
@@ -361,22 +451,6 @@ class BugReportModal {
 
     private showError(message: string): void {
         this.showStatus(message, 'error');
-    }
-
-    private sendAppState(): void {
-        // Collect current app state from the editor
-        // Use getAppState() function exposed by editor.ts
-        const appState = (window as any).getAppState?.() || {};
-        const state = {
-            currentPdf: appState.currentPdfPath || null,
-            pricesLoaded: appState.prices ? appState.prices.length : 0,
-            pricesModified: appState.prices ?
-                appState.prices.filter((p: any) => p.modified).length : 0,
-            backendStatus: appState.backendAvailable ? 'running' : 'unavailable',
-            backendPort: appState.pythonPort || null
-        };
-
-        window.api.sendAppState(state);
     }
 }
 

@@ -56,6 +56,24 @@ const lastLoggedValues: { [key: number]: number } = {}; // Track what we've alre
     pythonPort
 });
 
+// Listen for state requests from shell (Bug Spray modal)
+window.addEventListener('message', (event) => {
+    if (event.data?.type === 'get-app-state') {
+        const state = (window as any).getAppState();
+        const filename = state.currentPdfPath?.split('/').pop() || null;
+        parent.postMessage({
+            type: 'app-state-response',
+            state: {
+                appName: 'Price List Editor',
+                currentFile: filename,
+                pricesLoaded: state.prices?.length || 0,
+                pricesModified: state.prices?.filter((p: any) => p.modified).length || 0,
+                backendStatus: state.backendAvailable ? 'running' : 'unavailable'
+            }
+        }, '*');
+    }
+});
+
 // Request timeout in milliseconds
 const REQUEST_TIMEOUT = 30000;
 

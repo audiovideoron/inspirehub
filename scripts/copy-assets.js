@@ -8,10 +8,10 @@ const path = require('path');
 
 // Asset configurations: [sourceDir, destDir, files[]]
 const assets = [
-    // Shell
-    ['src/shell', 'dist/shell', ['index.html', 'shell.css']],
+    // Shell (includes Bug Spray modal - shared component)
+    ['src/shell', 'dist/shell', ['index.html', 'shell.css', 'bug-report-modal.css']],
     // Price List app
-    ['src/apps/price-list', 'dist/apps/price-list', ['index.html', 'editor.css', 'bug-report-modal.css']],
+    ['src/apps/price-list', 'dist/apps/price-list', ['index.html', 'editor.css']],
     // Equipment app
     ['src/apps/equipment', 'dist/apps/equipment', ['index.html', 'equipment.css']]
 ];

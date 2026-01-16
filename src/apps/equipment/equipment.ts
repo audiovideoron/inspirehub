@@ -48,6 +48,22 @@ let reservations: Reservation[] = [];
 let selectedEquipment: Equipment | null = null;
 let categories: string[] = [];
 
+// Listen for state requests from shell (Bug Spray modal)
+window.addEventListener('message', (event) => {
+    if (event.data?.type === 'get-app-state') {
+        parent.postMessage({
+            type: 'app-state-response',
+            state: {
+                appName: 'Equipment Request',
+                equipmentCount: equipment.length,
+                reservationsCount: reservations.length,
+                selectedEquipment: selectedEquipment?.name || null,
+                backendStatus: apiBaseUrl ? 'configured' : 'not configured'
+            }
+        }, '*');
+    }
+});
+
 // DOM Elements
 let backendStatusEl: HTMLElement;
 let equipmentGrid: HTMLElement;
