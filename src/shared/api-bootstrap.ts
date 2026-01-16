@@ -58,7 +58,13 @@ function createAPIProxy(): any {
         'getFilteredLogs',
         'resetBugSession',
         'hasErrorInLogs',
-        'sendAppState'
+        'sendAppState',
+        // Bug Spray App methods
+        'isDevelopmentMode',
+        'getBugReports',
+        'getBugReportDetail',
+        'triageBugReport',
+        'getAttachment'
     ];
 
     // Event listeners

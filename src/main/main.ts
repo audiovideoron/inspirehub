@@ -441,6 +441,39 @@ ipcMain.handle('has-error-in-logs', async (): Promise<boolean> => {
     return bugReporter.hasErrorInLogs();
 });
 
+// Bug Spray App IPC handlers (development mode only)
+ipcMain.handle('is-development-mode', (): boolean => {
+    return !app.isPackaged;
+});
+
+ipcMain.handle('get-bug-reports', async (event: IpcMainInvokeEvent, filters?: any): Promise<any[]> => {
+    if (!bugReporter) {
+        return [];
+    }
+    return bugReporter.listBugReports(filters);
+});
+
+ipcMain.handle('get-bug-report-detail', async (event: IpcMainInvokeEvent, id: string): Promise<any> => {
+    if (!bugReporter) {
+        return null;
+    }
+    return bugReporter.getBugReportDetail(id);
+});
+
+ipcMain.handle('triage-bug-report', async (event: IpcMainInvokeEvent, id: string, params: any): Promise<{ success: boolean; error?: string }> => {
+    if (!bugReporter) {
+        return { success: false, error: 'Bug reporter not initialized' };
+    }
+    return bugReporter.triageBugReport(id, params);
+});
+
+ipcMain.handle('get-attachment', async (event: IpcMainInvokeEvent, id: string, type: string): Promise<string | null> => {
+    if (!bugReporter) {
+        return null;
+    }
+    return bugReporter.getAttachment(id, type as 'logs' | 'screenshot' | 'system-info');
+});
+
 // Handle backend startup failure with retry options
 async function handleBackendStartupFailure(error: Error): Promise<'retry' | 'continue' | 'quit'> {
     const response: Electron.MessageBoxReturnValue = await dialog.showMessageBox({

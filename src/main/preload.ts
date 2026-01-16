@@ -167,6 +167,13 @@ contextBridge.exposeInMainWorld('api', {
     getFilteredLogs: (): Promise<string[]> => safeInvoke('get-filtered-logs'),
     resetBugSession: (): Promise<void> => safeInvoke('reset-bug-session'),
     hasErrorInLogs: (): Promise<boolean> => safeInvoke('has-error-in-logs'),
+
+    // Bug Spray App (development mode only)
+    isDevelopmentMode: (): Promise<boolean> => safeInvoke('is-development-mode'),
+    getBugReports: (filters?: any): Promise<any[]> => safeInvoke('get-bug-reports', filters),
+    getBugReportDetail: (id: string): Promise<any> => safeInvoke('get-bug-report-detail', id),
+    triageBugReport: (id: string, params: any): Promise<{ success: boolean; error?: string }> => safeInvoke('triage-bug-report', id, params),
+    getAttachment: (id: string, type: string): Promise<string | null> => safeInvoke('get-attachment', id, type),
     onShowBugReportModal: (() => {
         let currentHandler: (() => void) | null = null;
         return (callback: () => void): UnsubscribeFunction => {

@@ -51,7 +51,8 @@ interface AppConfig {
 
 const apps: AppConfig[] = [
     { id: 'price-list', path: '../apps/price-list/index.html' },
-    { id: 'equipment', path: '../apps/equipment/index.html' }
+    { id: 'equipment', path: '../apps/equipment/index.html' },
+    { id: 'bugspray', path: '../apps/bugspray/index.html' }
 ];
 
 let currentApp: string = 'price-list';

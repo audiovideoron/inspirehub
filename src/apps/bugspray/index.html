@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;">
+    <title>Bug Spray - Reports</title>
+    <link rel="stylesheet" href="bugspray.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1>Bug Reports</h1>
+            <div class="mode-badge" id="modeBadge">
+                <span class="mode-text">Loading...</span>
+            </div>
+        </header>
+
+        <!-- Dev Mode: Tabs -->
+        <nav class="tabs" id="devTabs" style="display: none;">
+            <button class="tab active" data-tab="all">All Reports</button>
+            <button class="tab" data-tab="triage">Needs Triage</button>
+        </nav>
+
+        <!-- Filters (Dev Mode) -->
+        <div class="filters" id="devFilters" style="display: none;">
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="Search reports..." />
+            </div>
+            <select id="statusFilter">
+                <option value="">All Status</option>
+                <option value="open">Open</option>
+                <option value="in_progress">In Progress</option>
+                <option value="deferred">Deferred</option>
+                <option value="closed">Closed</option>
+            </select>
+        </div>
+
+        <!-- Reports List -->
+        <section class="reports-section">
+            <div class="reports-list" id="reportsList">
+                <div class="loading">Loading reports...</div>
+            </div>
+        </section>
+
+        <!-- Detail Modal -->
+        <div class="modal-overlay" id="detailModal">
+            <div class="modal">
+                <div class="modal-header">
+                    <h2 id="modalTitle">Bug Report Details</h2>
+                    <button class="modal-close" id="modalClose">&times;</button>
+                </div>
+                <div class="modal-body" id="modalBody">
+                    <!-- Filled dynamically -->
+                </div>
+                <div class="modal-footer" id="modalFooter" style="display: none;">
+                    <!-- Triage actions for dev mode -->
+                </div>
+            </div>
+        </div>
+
+        <!-- User View: Info Panel -->
+        <div class="user-info-panel" id="userInfoPanel" style="display: none;">
+            <div class="info-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="16" x2="12" y2="12"></line>
+                    <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                </svg>
+            </div>
+            <p>Bug reports you submit are reviewed by our team. Use <strong>Help &rarr; Bug Spray</strong> to submit a new report.</p>
+        </div>
+    </div>
+
+    <script src="../../shared/api-bootstrap.js"></script>
+    <script src="./bugspray.js"></script>
+</body>
+</html>

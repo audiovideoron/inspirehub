@@ -13,7 +13,9 @@ const assets = [
     // Price List app
     ['src/apps/price-list', 'dist/apps/price-list', ['index.html', 'editor.css']],
     // Equipment app
-    ['src/apps/equipment', 'dist/apps/equipment', ['index.html', 'equipment.css']]
+    ['src/apps/equipment', 'dist/apps/equipment', ['index.html', 'equipment.css']],
+    // Bug Spray app
+    ['src/apps/bugspray', 'dist/apps/bugspray', ['index.html', 'bugspray.css']]
 ];
 
 for (const [srcDir, destDir, files] of assets) {

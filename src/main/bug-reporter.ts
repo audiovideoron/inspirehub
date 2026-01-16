@@ -69,6 +69,53 @@ interface SimilarBug {
 }
 
 /**
+ * Bug report for list view
+ */
+export interface BugReport {
+    id: string;
+    title: string;
+    status: string;
+    priority: number;
+    type: string;
+    labels: string[];
+    created: string;
+    voteCount?: number;
+}
+
+/**
+ * Detailed bug report with full context
+ */
+export interface BugReportDetail extends BugReport {
+    description: string;
+    hasScreenshot: boolean;
+    hasLogs: boolean;
+    hasSystemInfo: boolean;
+}
+
+/**
+ * Filters for listing bug reports
+ */
+export interface BugReportFilters {
+    status?: 'open' | 'in_progress' | 'deferred' | 'closed';
+    label?: string;
+    needsTriage?: boolean;
+}
+
+/**
+ * Triage action types
+ */
+export type TriageAction = 'approve' | 'reject' | 'prioritize';
+
+/**
+ * Triage action parameters
+ */
+export interface TriageParams {
+    action: TriageAction;
+    priority?: number;
+    reason?: string;
+}
+
+/**
  * BugReporter class handles capturing and submitting bug reports
  */
 export class BugReporter {
@@ -668,6 +715,249 @@ ${logsContent}
         } catch (error) {
             console.error('Failed to copy attachments to beads:', error);
             // Non-fatal, continue
+        }
+    }
+
+    // ========== Bug Spray App Methods (Development Mode Only) ==========
+
+    /**
+     * List bug reports from beads (development mode only)
+     * In packaged app, returns empty array - users see their reports via GitHub
+     */
+    async listBugReports(filters?: BugReportFilters): Promise<BugReport[]> {
+        // Only available in development mode
+        if (app.isPackaged) {
+            return [];
+        }
+
+        return new Promise((resolve) => {
+            const args = ['list', '--label=user-reported', '--json'];
+
+            // Add status filter
+            if (filters?.status) {
+                args.push('--status', filters.status);
+            }
+            if (filters?.needsTriage) {
+                args.push('--label=needs-triage');
+            }
+            if (filters?.label) {
+                args.push('--label', filters.label);
+            }
+
+            const proc = spawn('bd', args);
+
+            let stdout = '';
+            let stderr = '';
+
+            proc.stdout.on('data', (data: Buffer) => stdout += data.toString());
+            proc.stderr.on('data', (data: Buffer) => stderr += data.toString());
+
+            proc.on('close', async (code: number | null) => {
+                if (code !== 0) {
+                    console.error('bd list failed:', stderr);
+                    resolve([]);
+                    return;
+                }
+
+                try {
+                    const issues = JSON.parse(stdout);
+                    if (!Array.isArray(issues)) {
+                        resolve([]);
+                        return;
+                    }
+
+                    // Map to BugReport format and add vote counts
+                    const reports: BugReport[] = await Promise.all(
+                        issues.map(async (issue: any) => ({
+                            id: issue.id,
+                            title: issue.title,
+                            status: issue.status,
+                            priority: issue.priority || 2,
+                            type: issue.type || 'bug',
+                            labels: issue.labels || [],
+                            created: issue.created || '',
+                            voteCount: await this.getVoteCount(issue.id)
+                        }))
+                    );
+
+                    resolve(reports);
+                } catch (error) {
+                    console.error('Failed to parse bd list output:', error);
+                    resolve([]);
+                }
+            });
+        });
+    }
+
+    /**
+     * Get detailed bug report (development mode only)
+     */
+    async getBugReportDetail(id: string): Promise<BugReportDetail | null> {
+        // Only available in development mode
+        if (app.isPackaged) {
+            return null;
+        }
+
+        return new Promise((resolve) => {
+            const proc = spawn('bd', ['show', id, '--json']);
+
+            let stdout = '';
+            let stderr = '';
+
+            proc.stdout.on('data', (data: Buffer) => stdout += data.toString());
+            proc.stderr.on('data', (data: Buffer) => stderr += data.toString());
+
+            proc.on('close', async (code: number | null) => {
+                if (code !== 0) {
+                    console.error('bd show failed:', stderr);
+                    resolve(null);
+                    return;
+                }
+
+                try {
+                    const issue = JSON.parse(stdout);
+
+                    // Check for attachments
+                    const attachmentDir = path.join(process.cwd(), '.beads', 'attachments', id);
+                    let hasScreenshot = false;
+                    let hasLogs = false;
+                    let hasSystemInfo = false;
+
+                    try {
+                        const files = await fs.readdir(attachmentDir);
+                        hasScreenshot = files.some((f: string) => f.includes('screenshot'));
+                        hasLogs = files.some((f: string) => f.includes('logs'));
+                        hasSystemInfo = files.some((f: string) => f.includes('system-info'));
+                    } catch {
+                        // Attachment dir doesn't exist
+                    }
+
+                    const detail: BugReportDetail = {
+                        id: issue.id,
+                        title: issue.title,
+                        status: issue.status,
+                        priority: issue.priority || 2,
+                        type: issue.type || 'bug',
+                        labels: issue.labels || [],
+                        created: issue.created || '',
+                        description: issue.description || '',
+                        voteCount: await this.getVoteCount(id),
+                        hasScreenshot,
+                        hasLogs,
+                        hasSystemInfo
+                    };
+
+                    resolve(detail);
+                } catch (error) {
+                    console.error('Failed to parse bd show output:', error);
+                    resolve(null);
+                }
+            });
+        });
+    }
+
+    /**
+     * Triage a bug report (development mode only)
+     * - approve: Move from deferred to open, remove needs-triage label
+     * - reject: Close the issue with a reason
+     * - prioritize: Set priority level
+     */
+    async triageBugReport(id: string, params: TriageParams): Promise<{ success: boolean; error?: string }> {
+        // Only available in development mode
+        if (app.isPackaged) {
+            return { success: false, error: 'Triage not available in packaged app' };
+        }
+
+        return new Promise((resolve) => {
+            let args: string[];
+
+            switch (params.action) {
+                case 'approve':
+                    // Move to open status and remove needs-triage label
+                    args = ['update', id, '--status', 'open', '--remove-label', 'needs-triage'];
+                    break;
+
+                case 'reject':
+                    // Close the issue with a reason
+                    args = ['close', id];
+                    if (params.reason) {
+                        args.push('--reason', params.reason);
+                    }
+                    break;
+
+                case 'prioritize':
+                    // Set priority
+                    args = ['update', id, '--priority', String(params.priority || 2)];
+                    break;
+
+                default:
+                    resolve({ success: false, error: `Unknown triage action: ${params.action}` });
+                    return;
+            }
+
+            const proc = spawn('bd', args);
+
+            let stderr = '';
+            proc.stderr.on('data', (data: Buffer) => stderr += data.toString());
+
+            proc.on('close', (code: number | null) => {
+                if (code !== 0) {
+                    console.error('bd triage failed:', stderr);
+                    resolve({ success: false, error: stderr || 'Triage command failed' });
+                } else {
+                    resolve({ success: true });
+                }
+            });
+        });
+    }
+
+    /**
+     * Get attachment content (development mode only)
+     * @param id - Issue ID
+     * @param type - 'logs' | 'screenshot' | 'system-info'
+     * @returns Content as string (base64 for screenshot) or null if not found
+     */
+    async getAttachment(id: string, type: 'logs' | 'screenshot' | 'system-info'): Promise<string | null> {
+        // Only available in development mode
+        if (app.isPackaged) {
+            return null;
+        }
+
+        const attachmentDir = path.join(process.cwd(), '.beads', 'attachments', id);
+
+        try {
+            const files = await fs.readdir(attachmentDir);
+            let filename: string | undefined;
+
+            switch (type) {
+                case 'logs':
+                    filename = files.find((f: string) => f.includes('logs'));
+                    break;
+                case 'screenshot':
+                    filename = files.find((f: string) => f.includes('screenshot'));
+                    break;
+                case 'system-info':
+                    filename = files.find((f: string) => f.includes('system-info'));
+                    break;
+            }
+
+            if (!filename) {
+                return null;
+            }
+
+            const filePath = path.join(attachmentDir, filename);
+
+            if (type === 'screenshot') {
+                // Return as base64 data URL
+                const content = await fs.readFile(filePath);
+                return `data:image/png;base64,${content.toString('base64')}`;
+            } else {
+                // Return as text
+                return await fs.readFile(filePath, 'utf-8');
+            }
+        } catch (error) {
+            console.error(`Failed to get attachment ${type} for ${id}:`, error);
+            return null;
         }
     }
 }
