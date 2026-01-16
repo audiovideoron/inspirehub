@@ -1,6 +1,6 @@
 {
   "name": "inspirehub",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Inspire Solutions hub - price lists, equipment, and more",
   "main": "dist/main/main.js",
   "scripts": {
