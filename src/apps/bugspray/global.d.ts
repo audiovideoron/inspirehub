@@ -27,7 +27,7 @@ interface BugReportFilters {
 }
 
 interface TriageParams {
-    action: 'approve' | 'reject' | 'prioritize';
+    action: 'approve' | 'reject' | 'prioritize' | 'start_work' | 'mark_fixed' | 'close';
     priority?: number;
     reason?: string;
 }

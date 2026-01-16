@@ -431,10 +431,21 @@ async function openReportDetail(id: string): Promise<void> {
             document.getElementById('approveBtn')?.addEventListener('click', () => triageReport('approve'));
             document.getElementById('rejectBtn')?.addEventListener('click', () => triageReport('reject'));
         } else if (isDev) {
-            // Show priority controls for non-triage reports
+            // Show actions and priority controls for approved reports
             modalFooter.style.display = 'flex';
             modalFooter.innerHTML = `
-                <div style="flex: 1;">
+                <div class="footer-actions">
+                    ${detail.status === 'open' ? `
+                        <button class="btn btn-primary" id="startWorkBtn">Start Work</button>
+                    ` : ''}
+                    ${detail.status === 'in_progress' ? `
+                        <button class="btn btn-success" id="markFixedBtn">Mark Fixed</button>
+                    ` : ''}
+                    ${detail.status === 'open' || detail.status === 'in_progress' ? `
+                        <button class="btn btn-secondary" id="closeBtn">Close</button>
+                    ` : ''}
+                </div>
+                <div class="footer-priority">
                     <label style="font-size: 13px; color: #64748b;">Priority:</label>
                     <div class="priority-selector" style="margin-top: 4px;">
                         ${[1, 2, 3, 4].map(p => `
@@ -443,6 +454,10 @@ async function openReportDetail(id: string): Promise<void> {
                     </div>
                 </div>
             `;
+
+            document.getElementById('startWorkBtn')?.addEventListener('click', () => triageReport('start_work'));
+            document.getElementById('markFixedBtn')?.addEventListener('click', () => triageReport('mark_fixed'));
+            document.getElementById('closeBtn')?.addEventListener('click', () => triageReport('close'));
 
             modalFooter.querySelectorAll('.priority-btn').forEach(btn => {
                 btn.addEventListener('click', async () => {
@@ -487,7 +502,7 @@ async function loadAttachment(id: string, type: 'logs' | 'screenshot' | 'system-
 /**
  * Triage a bug report
  */
-async function triageReport(action: 'approve' | 'reject' | 'prioritize', priority?: number): Promise<void> {
+async function triageReport(action: 'approve' | 'reject' | 'prioritize' | 'start_work' | 'mark_fixed' | 'close', priority?: number): Promise<void> {
     console.warn(LOG_PREFIX, `Triage action: ${action}`, { reportId: selectedReport?.id, priority });
 
     if (!selectedReport) {
@@ -499,6 +514,11 @@ async function triageReport(action: 'approve' | 'reject' | 'prioritize', priorit
     if (action === 'reject') {
         const input = await showPrompt('Reason for rejection:', 'e.g., duplicate, not a bug, cannot reproduce');
         console.warn(LOG_PREFIX, `Reject prompt result: ${input === null ? 'cancelled' : 'provided'}`);
+        if (input === null) return; // User cancelled
+        reason = input || undefined;
+    } else if (action === 'close') {
+        const input = await showPrompt('Reason for closing (optional):', 'e.g., wont fix, out of scope');
+        console.warn(LOG_PREFIX, `Close prompt result: ${input === null ? 'cancelled' : 'provided'}`);
         if (input === null) return; // User cancelled
         reason = input || undefined;
     }

@@ -104,7 +104,7 @@ export interface BugReportFilters {
 /**
  * Triage action types
  */
-export type TriageAction = 'approve' | 'reject' | 'prioritize';
+export type TriageAction = 'approve' | 'reject' | 'prioritize' | 'start_work' | 'mark_fixed' | 'close';
 
 /**
  * Triage action parameters
@@ -894,6 +894,24 @@ ${logsContent}
                 case 'prioritize':
                     // Set priority
                     args = ['update', id, '--priority', String(params.priority || 2)];
+                    break;
+
+                case 'start_work':
+                    // Change status to in_progress
+                    args = ['update', id, '--status', 'in_progress'];
+                    break;
+
+                case 'mark_fixed':
+                    // Close the issue as fixed
+                    args = ['close', id, '--reason', 'Fixed'];
+                    break;
+
+                case 'close':
+                    // Close without specific reason
+                    args = ['close', id];
+                    if (params.reason) {
+                        args.push('--reason', params.reason);
+                    }
                     break;
 
                 default:
