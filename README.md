@@ -29,12 +29,16 @@ When you submit a report, Bug Spray automatically collects:
 
 If a similar bug has already been reported, you'll see a match and can click **"Me Too"** to add your vote instead of creating a duplicate.
 
+### Where Reports Go
+
+- **Production**: Reports are submitted to GitHub Issues where developers can see and triage them
+- **Development**: Reports are stored locally in `.beads/` for testing
+
 ### Privacy
 
-- Reports are stored locally in `.beads/` and synced via git
-- No data is sent to external servers
 - Logs only include the current session (not historical data)
-- You can review captured data before submitting
+- You can review the screenshot before submitting
+- System info is limited to OS version, app version, and memory (no personal data)
 
 ## Development
 
