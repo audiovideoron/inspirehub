@@ -11,7 +11,7 @@
     <div class="container">
         <!-- Header -->
         <header class="header">
-            <h1>Bug Reports</h1>
+            <h1>Bug Spray</h1>
             <div class="mode-badge" id="modeBadge">
                 <span class="mode-text">Loading...</span>
             </div>
@@ -56,6 +56,22 @@
                 </div>
                 <div class="modal-footer" id="modalFooter" style="display: none;">
                     <!-- Triage actions for dev mode -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Prompt Dialog (replacement for browser prompt) -->
+        <div class="modal-overlay" id="promptModal" style="display: none;">
+            <div class="modal prompt-modal">
+                <div class="modal-header">
+                    <h2 id="promptTitle">Enter Value</h2>
+                </div>
+                <div class="modal-body">
+                    <input type="text" id="promptInput" class="prompt-input" placeholder="" />
+                </div>
+                <div class="modal-footer" style="display: flex;">
+                    <button class="btn btn-secondary" id="promptCancel">Cancel</button>
+                    <button class="btn btn-primary" id="promptOk">OK</button>
                 </div>
             </div>
         </div>

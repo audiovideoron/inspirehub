@@ -33,6 +33,12 @@ let modalBody: HTMLElement;
 let modalFooter: HTMLElement;
 let userInfoPanel: HTMLElement;
 
+// Prompt modal elements
+let promptModal: HTMLElement;
+let promptTitle: HTMLElement;
+let promptInput: HTMLInputElement;
+let promptResolve: ((value: string | null) => void) | null = null;
+
 // Polling interval for updates (30s when visible)
 let pollInterval: number | null = null;
 
@@ -54,6 +60,12 @@ async function initApp(): Promise<void> {
     modalBody = document.getElementById('modalBody')!;
     modalFooter = document.getElementById('modalFooter')!;
     userInfoPanel = document.getElementById('userInfoPanel')!;
+
+    // Prompt modal elements
+    promptModal = document.getElementById('promptModal')!;
+    promptTitle = document.getElementById('promptTitle')!;
+    promptInput = document.getElementById('promptInput') as HTMLInputElement;
+    setupPromptListeners();
 
     // Detect mode
     isDev = await window.api.isDevelopmentMode();
@@ -147,6 +159,58 @@ function setupEventListeners(): void {
             startPolling();
         }
     });
+}
+
+/**
+ * Set up prompt dialog event listeners
+ */
+function setupPromptListeners(): void {
+    document.getElementById('promptCancel')?.addEventListener('click', () => {
+        hidePrompt(null);
+    });
+
+    document.getElementById('promptOk')?.addEventListener('click', () => {
+        hidePrompt(promptInput.value);
+    });
+
+    promptInput?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            hidePrompt(promptInput.value);
+        } else if (e.key === 'Escape') {
+            hidePrompt(null);
+        }
+    });
+
+    promptModal?.addEventListener('click', (e) => {
+        if (e.target === promptModal) {
+            hidePrompt(null);
+        }
+    });
+}
+
+/**
+ * Show custom prompt dialog (replacement for browser prompt)
+ */
+function showPrompt(title: string, placeholder?: string): Promise<string | null> {
+    return new Promise((resolve) => {
+        promptResolve = resolve;
+        promptTitle.textContent = title;
+        promptInput.value = '';
+        promptInput.placeholder = placeholder || '';
+        promptModal.style.display = 'flex';
+        promptInput.focus();
+    });
+}
+
+/**
+ * Hide prompt dialog and resolve with value
+ */
+function hidePrompt(value: string | null): void {
+    promptModal.style.display = 'none';
+    if (promptResolve) {
+        promptResolve(value);
+        promptResolve = null;
+    }
 }
 
 /**
@@ -424,21 +488,29 @@ async function loadAttachment(id: string, type: 'logs' | 'screenshot' | 'system-
  * Triage a bug report
  */
 async function triageReport(action: 'approve' | 'reject' | 'prioritize', priority?: number): Promise<void> {
-    if (!selectedReport) return;
+    console.warn(LOG_PREFIX, `Triage action: ${action}`, { reportId: selectedReport?.id, priority });
+
+    if (!selectedReport) {
+        console.warn(LOG_PREFIX, 'Triage failed: no selected report');
+        return;
+    }
 
     let reason: string | undefined;
     if (action === 'reject') {
-        const input = prompt('Reason for rejection:');
+        const input = await showPrompt('Reason for rejection:', 'e.g., duplicate, not a bug, cannot reproduce');
+        console.warn(LOG_PREFIX, `Reject prompt result: ${input === null ? 'cancelled' : 'provided'}`);
         if (input === null) return; // User cancelled
         reason = input || undefined;
     }
 
     try {
+        console.warn(LOG_PREFIX, `Calling triageBugReport API...`);
         const result = await window.api.triageBugReport(selectedReport.id, {
             action,
             priority,
             reason
         });
+        console.warn(LOG_PREFIX, `Triage result:`, result);
 
         if (result.success) {
             closeModal();
@@ -447,6 +519,7 @@ async function triageReport(action: 'approve' | 'reject' | 'prioritize', priorit
             alert(`Triage failed: ${result.error || 'Unknown error'}`);
         }
     } catch (error) {
+        console.warn(LOG_PREFIX, 'Triage error:', error);
         alert(`Triage failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
 }

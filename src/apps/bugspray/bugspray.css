@@ -544,3 +544,22 @@ body {
     font-size: 14px;
     color: #3730a3;
 }
+
+/* Prompt Modal */
+.prompt-modal {
+    max-width: 400px;
+}
+
+.prompt-input {
+    width: 100%;
+    padding: 12px;
+    font-size: 14px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    outline: none;
+}
+
+.prompt-input:focus {
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}

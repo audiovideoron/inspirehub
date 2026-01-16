@@ -773,9 +773,9 @@ ${logsContent}
                             title: issue.title,
                             status: issue.status,
                             priority: issue.priority || 2,
-                            type: issue.type || 'bug',
+                            type: issue.issue_type || issue.type || 'bug',
                             labels: issue.labels || [],
-                            created: issue.created || '',
+                            created: issue.created_at || issue.created || '',
                             voteCount: await this.getVoteCount(issue.id)
                         }))
                     );
@@ -815,7 +815,13 @@ ${logsContent}
                 }
 
                 try {
-                    const issue = JSON.parse(stdout);
+                    const parsed = JSON.parse(stdout);
+                    // bd show --json returns an array with one element
+                    const issue = Array.isArray(parsed) ? parsed[0] : parsed;
+                    if (!issue) {
+                        resolve(null);
+                        return;
+                    }
 
                     // Check for attachments
                     const attachmentDir = path.join(process.cwd(), '.beads', 'attachments', id);
@@ -837,9 +843,9 @@ ${logsContent}
                         title: issue.title,
                         status: issue.status,
                         priority: issue.priority || 2,
-                        type: issue.type || 'bug',
+                        type: issue.issue_type || issue.type || 'bug',
                         labels: issue.labels || [],
-                        created: issue.created || '',
+                        created: issue.created_at || issue.created || '',
                         description: issue.description || '',
                         voteCount: await this.getVoteCount(id),
                         hasScreenshot,
