@@ -1,9 +1,10 @@
 /**
- * Global type definitions for the renderer process
+ * Global type definitions for the shell
+ * Same as apps but may not always have api (preload loads after shell)
  */
 
 interface Window {
-    api: {
+    api?: {
         getPythonPort(): Promise<number | null>;
         getBackendStatus(): Promise<string>;
         getEquipmentPort(): Promise<number | null>;

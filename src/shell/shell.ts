@@ -3,22 +3,46 @@
  * Manages switching between apps in the sidebar
  */
 
-import { initShellBridge } from './api-bridge';
+// Note: window.api types are defined in src/apps/*/global.d.ts
 
-// Declare window.api for TypeScript
-declare const window: Window & {
-    api?: {
-        logError: (source: string, error: {
-            message: string;
-            stack?: string;
-            filename?: string;
-            lineno?: number;
-            colno?: number;
-        }) => Promise<void>;
-        logConsole: (source: string, level: string, message: string, args?: any[]) => Promise<void>;
-        getLogFilePath: () => Promise<string>;
-    };
-};
+/**
+ * Initialize the API bridge for iframe communication
+ * Relays postMessage requests from iframes to main process via preload API
+ */
+function initShellBridge(): void {
+    window.addEventListener('message', async (event) => {
+        // Only handle API requests
+        const data = event.data;
+        if (data?.type !== 'api-request') return;
+
+        const { id, method, args } = data;
+        const source = event.source as Window;
+
+        try {
+            const api = window.api;
+            if (!api) {
+                throw new Error('API not available');
+            }
+
+            const apiMethod = api[method];
+            if (typeof apiMethod !== 'function') {
+                throw new Error(`Unknown API method: ${method}`);
+            }
+
+            const result = await apiMethod(...args);
+            source.postMessage({ type: 'api-response', id, result }, '*');
+
+        } catch (error) {
+            source.postMessage({
+                type: 'api-response',
+                id,
+                error: error instanceof Error ? error.message : 'Unknown error'
+            }, '*');
+        }
+    });
+
+    console.log('Shell API bridge initialized');
+}
 
 interface AppConfig {
     id: string;

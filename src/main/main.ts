@@ -84,6 +84,18 @@ function createWindow(): void {
         mainWindow.webContents.openDevTools();
     }
 
+    // Capture all renderer console messages and log errors/warnings to file
+    mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
+        // level: 0=verbose, 1=info, 2=warning, 3=error
+        const levelMap: Record<number, string> = { 0: 'DEBUG', 1: 'INFO', 2: 'WARN', 3: 'ERROR' };
+        const levelName = levelMap[level] || 'INFO';
+
+        // Log warnings and errors to file
+        if (level >= 2) {
+            logRendererConsole('renderer', levelName, message, [{ line, sourceId }]);
+        }
+    });
+
     // Initialize bug reporter
     bugReporter = new BugReporter(mainWindow);
 

@@ -28,5 +28,11 @@ interface Window {
         onShowBugReportModal(callback: () => void): () => void;
         onRequestAppState(callback: () => void): () => void;
         sendAppState(state: any): void;
+        // Logging
+        logError(source: string, error: { message: string; stack?: string; filename?: string; lineno?: number; colno?: number }): Promise<void>;
+        logConsole(source: string, level: string, message: string, args?: any[]): Promise<void>;
+        getLogFilePath(): Promise<string>;
+        // Index signature for dynamic access
+        [key: string]: any;
     };
 }
