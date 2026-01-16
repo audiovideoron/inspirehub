@@ -126,7 +126,7 @@ class BugReportModal {
         if (submitBtn) submitBtn.addEventListener('click', () => this.submit());
     }
 
-    private async show(): Promise<void> {
+    public async show(): Promise<void> {
         const modal = document.getElementById('bug-report-modal');
         if (modal) {
             modal.classList.remove('bug-hidden');
@@ -454,11 +454,19 @@ class BugReportModal {
     }
 }
 
-// Initialize on DOM load
+// Initialize on DOM load and expose show function
+let modalInstance: BugReportModal | null = null;
+
+function initModal(): void {
+    modalInstance = new BugReportModal();
+    // Expose show function for error toast to call
+    (window as any).showBugReportModal = () => {
+        modalInstance?.show();
+    };
+}
+
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-        new BugReportModal();
-    });
+    document.addEventListener('DOMContentLoaded', initModal);
 } else {
-    new BugReportModal();
+    initModal();
 }

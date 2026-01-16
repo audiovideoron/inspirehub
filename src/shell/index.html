@@ -55,6 +55,20 @@
         <main class="app-content">
             <iframe id="app-frame" class="app-frame"></iframe>
         </main>
+
+        <!-- Error Toast -->
+        <div id="errorToast" class="error-toast" style="display: none;">
+            <div class="error-toast-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+            </div>
+            <span class="error-toast-message">Something went wrong</span>
+            <button class="error-toast-report" id="errorToastReport">Report</button>
+            <button class="error-toast-dismiss" id="errorToastDismiss">&times;</button>
+        </div>
     </div>
 
     <script src="./shell.js"></script>

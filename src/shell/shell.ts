@@ -57,6 +57,92 @@ const apps: AppConfig[] = [
 
 let currentApp: string = 'price-list';
 
+// Error toast state
+const promptedErrors = new Set<string>();
+let promptCount = 0;
+const MAX_PROMPTS_PER_SESSION = 3;
+const TOAST_AUTO_DISMISS_MS = 10000;
+let toastTimeout: number | null = null;
+
+/**
+ * Show the error toast notification
+ */
+function showErrorToast(errorMessage: string): void {
+    // Create a dedupe key from the error message
+    const key = errorMessage.slice(0, 100);
+
+    // Skip if we've already prompted for this error
+    if (promptedErrors.has(key)) {
+        console.log('Error toast: skipping duplicate error');
+        return;
+    }
+
+    // Skip if we've hit the session limit
+    if (promptCount >= MAX_PROMPTS_PER_SESSION) {
+        console.log('Error toast: session limit reached');
+        return;
+    }
+
+    // Track this error
+    promptedErrors.add(key);
+    promptCount++;
+
+    const toast = document.getElementById('errorToast');
+    if (!toast) return;
+
+    // Show the toast
+    toast.style.display = 'flex';
+    toast.classList.remove('hiding');
+
+    // Auto-dismiss after timeout
+    if (toastTimeout) {
+        clearTimeout(toastTimeout);
+    }
+    toastTimeout = window.setTimeout(() => {
+        hideErrorToast();
+    }, TOAST_AUTO_DISMISS_MS);
+
+    console.log(`Error toast: shown (${promptCount}/${MAX_PROMPTS_PER_SESSION})`);
+}
+
+/**
+ * Hide the error toast notification
+ */
+function hideErrorToast(): void {
+    const toast = document.getElementById('errorToast');
+    if (!toast) return;
+
+    if (toastTimeout) {
+        clearTimeout(toastTimeout);
+        toastTimeout = null;
+    }
+
+    // Animate out
+    toast.classList.add('hiding');
+    setTimeout(() => {
+        toast.style.display = 'none';
+        toast.classList.remove('hiding');
+    }, 300);
+}
+
+/**
+ * Set up error toast event listeners
+ */
+function setupErrorToast(): void {
+    const reportBtn = document.getElementById('errorToastReport');
+    const dismissBtn = document.getElementById('errorToastDismiss');
+
+    reportBtn?.addEventListener('click', () => {
+        hideErrorToast();
+        // Trigger Bug Spray modal (exposed by bug-report-modal.ts)
+        (window as any).showBugReportModal?.();
+    });
+
+    dismissBtn?.addEventListener('click', () => {
+        hideErrorToast();
+    });
+}
+
 /**
  * Set up global error capturing for the shell and iframes
  */
@@ -72,6 +158,7 @@ function setupErrorCapture(): void {
         };
         console.error('[Shell Error]', errorInfo);
         window.api?.logError('shell', errorInfo);
+        showErrorToast(String(message));
         return false; // Don't suppress the error
     };
 
@@ -83,6 +170,7 @@ function setupErrorCapture(): void {
         };
         console.error('[Shell Unhandled Rejection]', errorInfo);
         window.api?.logError('shell', errorInfo);
+        showErrorToast(errorInfo.message);
     };
 }
 
@@ -107,6 +195,7 @@ function setupIframeErrorCapture(iframe: HTMLIFrameElement, appId: string): void
                 };
                 console.error(`[${appId} Error]`, errorInfo);
                 window.api?.logError(appId, errorInfo);
+                showErrorToast(String(message));
                 return false;
             };
 
@@ -118,6 +207,7 @@ function setupIframeErrorCapture(iframe: HTMLIFrameElement, appId: string): void
                 };
                 console.error(`[${appId} Unhandled Rejection]`, errorInfo);
                 window.api?.logError(appId, errorInfo);
+                showErrorToast(errorInfo.message);
             };
 
         } catch (e) {
@@ -133,6 +223,9 @@ function initShell(): void {
 
     // Set up error capture
     setupErrorCapture();
+
+    // Set up error toast
+    setupErrorToast();
 
     const navItems = document.querySelectorAll('.nav-item');
     const appFrame = document.getElementById('app-frame') as HTMLIFrameElement;
