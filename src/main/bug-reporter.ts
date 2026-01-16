@@ -3,7 +3,17 @@ import { BrowserWindow, app, ipcMain, IpcMainEvent, net } from 'electron';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as os from 'os';
-import { parseLogTimestamp, hasErrorInLogContent } from '../shared/utils';
+import {
+    parseLogTimestamp,
+    hasErrorInLogContent,
+    sanitizeShellArg,
+    sanitizeBugTitle,
+    sanitizeBugDescription,
+    isValidBeadsId,
+    isPathWithinAllowed,
+    MAX_DESCRIPTION_LENGTH,
+    MAX_TITLE_LENGTH
+} from '../shared/utils';
 
 // GitHub API configuration for user bug reports
 const GITHUB_REPO = 'audiovideoron/inspirehub';
@@ -360,8 +370,11 @@ export class BugReporter {
             return [];
         }
 
+        // Security: Sanitize query to prevent command injection
+        const sanitizedQuery = sanitizeShellArg(query.substring(0, 200)); // Limit query length too
+
         return new Promise((resolve, reject) => {
-            const proc = spawn('bd', ['search', query, '--type=bug', '--limit=5', '--json']);
+            const proc = spawn('bd', ['search', sanitizedQuery, '--type=bug', '--limit=5', '--json']);
 
             let stdout = '';
             let stderr = '';
@@ -588,6 +601,10 @@ ${logsContent}
      */
     private createBeadsIssue(title: string, description: string, hasError: boolean): Promise<string | null> {
         return new Promise((resolve) => {
+            // Security: Sanitize inputs to prevent command injection
+            const sanitizedTitle = sanitizeBugTitle(title);
+            const sanitizedDescription = sanitizeBugDescription(description);
+
             // Use different labels based on whether error was detected
             const labels = hasError
                 ? ['user-reported', 'has-error']  // Auto-approved, visible to bd ready
@@ -595,12 +612,12 @@ ${logsContent}
 
             const proc = spawn('bd', [
                 'create',
-                '--title', `[User Report] ${title}`,
+                '--title', `[User Report] ${sanitizedTitle}`,
                 '--type', 'bug',
                 '--priority', hasError ? '1' : '2',  // Higher priority if error detected
                 '--label', labels[0],
                 '--label', labels[1],
-                '--description', description
+                '--description', sanitizedDescription
             ]);
 
             let stdout = '';
@@ -639,6 +656,12 @@ ${logsContent}
      */
     private deferIssue(beadsId: string): Promise<void> {
         return new Promise((resolve) => {
+            // Security: Validate beads ID format
+            if (!isValidBeadsId(beadsId)) {
+                console.error('Invalid beads ID format:', beadsId);
+                resolve();
+                return;
+            }
             const proc = spawn('bd', ['update', beadsId, '--status', 'deferred']);
             proc.on('close', () => resolve());
         });
@@ -650,7 +673,19 @@ ${logsContent}
      */
     async addMeTooVote(issueId: string, note: string): Promise<{ success: boolean; voteCount?: number; error?: string }> {
         try {
-            const votesDir = path.join(process.cwd(), '.beads', 'attachments', issueId);
+            // Security: Validate issue ID format to prevent path traversal
+            if (!isValidBeadsId(issueId)) {
+                return { success: false, error: 'Invalid issue ID format' };
+            }
+
+            const beadsBase = path.join(process.cwd(), '.beads', 'attachments');
+            const votesDir = path.join(beadsBase, issueId);
+
+            // Security: Verify path is within allowed directory
+            if (!isPathWithinAllowed(votesDir, [beadsBase])) {
+                return { success: false, error: 'Invalid path' };
+            }
+
             const votesFile = path.join(votesDir, 'votes.json');
 
             await fs.mkdir(votesDir, { recursive: true });
@@ -688,7 +723,19 @@ ${logsContent}
      */
     async getVoteCount(issueId: string): Promise<number> {
         try {
-            const votesFile = path.join(process.cwd(), '.beads', 'attachments', issueId, 'votes.json');
+            // Security: Validate issue ID format to prevent path traversal
+            if (!isValidBeadsId(issueId)) {
+                return 0;
+            }
+
+            const beadsBase = path.join(process.cwd(), '.beads', 'attachments');
+            const votesFile = path.join(beadsBase, issueId, 'votes.json');
+
+            // Security: Verify path is within allowed directory
+            if (!isPathWithinAllowed(votesFile, [beadsBase])) {
+                return 0;
+            }
+
             const content = await fs.readFile(votesFile, 'utf-8');
             const votes = JSON.parse(content);
             return Array.isArray(votes) ? votes.length : 0;
@@ -702,12 +749,31 @@ ${logsContent}
      */
     private async copyAttachmentsToBeads(sourceDir: string, beadsId: string): Promise<void> {
         try {
+            // Security: Validate beads ID format
+            if (!isValidBeadsId(beadsId)) {
+                console.error('Invalid beads ID format:', beadsId);
+                return;
+            }
+
             // Assuming beads attachments go in project root/.beads/attachments/
-            const beadsAttachmentDir = path.join(process.cwd(), '.beads', 'attachments', beadsId);
+            const beadsBase = path.join(process.cwd(), '.beads', 'attachments');
+            const beadsAttachmentDir = path.join(beadsBase, beadsId);
+
+            // Security: Verify destination path is within allowed directory
+            if (!isPathWithinAllowed(beadsAttachmentDir, [beadsBase])) {
+                console.error('Invalid destination path');
+                return;
+            }
+
             await fs.mkdir(beadsAttachmentDir, { recursive: true });
 
             const files = await fs.readdir(sourceDir);
             for (const file of files) {
+                // Security: Validate filename to prevent directory traversal
+                if (file.includes('..') || file.includes('/') || file.includes('\\')) {
+                    console.error('Invalid filename in source directory:', file);
+                    continue;
+                }
                 const src = path.join(sourceDir, file);
                 const dest = path.join(beadsAttachmentDir, file);
                 await fs.copyFile(src, dest);
@@ -733,15 +799,19 @@ ${logsContent}
         return new Promise((resolve) => {
             const args = ['list', '--label=user-reported', '--json'];
 
-            // Add status filter
-            if (filters?.status) {
+            // Add status filter with validation
+            // Status is from enum type, but sanitize anyway for defense in depth
+            const validStatuses = ['open', 'in_progress', 'deferred', 'closed'];
+            if (filters?.status && validStatuses.includes(filters.status)) {
                 args.push('--status', filters.status);
             }
             if (filters?.needsTriage) {
                 args.push('--label=needs-triage');
             }
-            if (filters?.label) {
-                args.push('--label', filters.label);
+            // Security: Sanitize label filter
+            if (filters?.label && typeof filters.label === 'string') {
+                const sanitizedLabel = sanitizeShellArg(filters.label.substring(0, 100));
+                args.push('--label', sanitizedLabel);
             }
 
             const proc = spawn('bd', args);
@@ -795,6 +865,12 @@ ${logsContent}
     async getBugReportDetail(id: string): Promise<BugReportDetail | null> {
         // Only available in development mode
         if (app.isPackaged) {
+            return null;
+        }
+
+        // Security: Validate issue ID format
+        if (!isValidBeadsId(id)) {
+            console.error('Invalid beads ID format:', id);
             return null;
         }
 
@@ -874,6 +950,24 @@ ${logsContent}
             return { success: false, error: 'Triage not available in packaged app' };
         }
 
+        // Security: Validate issue ID format
+        if (!isValidBeadsId(id)) {
+            return { success: false, error: 'Invalid issue ID format' };
+        }
+
+        // Security: Validate and sanitize reason if provided
+        const sanitizedReason = params.reason
+            ? sanitizeShellArg(params.reason.substring(0, 500))
+            : undefined;
+
+        // Security: Validate priority is a valid number
+        const validPriority = params.priority !== undefined
+            && typeof params.priority === 'number'
+            && params.priority >= 1
+            && params.priority <= 5
+            ? params.priority
+            : 2;
+
         return new Promise((resolve) => {
             let args: string[];
 
@@ -886,14 +980,14 @@ ${logsContent}
                 case 'reject':
                     // Close the issue with a reason
                     args = ['close', id];
-                    if (params.reason) {
-                        args.push('--reason', params.reason);
+                    if (sanitizedReason) {
+                        args.push('--reason', sanitizedReason);
                     }
                     break;
 
                 case 'prioritize':
                     // Set priority
-                    args = ['update', id, '--priority', String(params.priority || 2)];
+                    args = ['update', id, '--priority', String(validPriority)];
                     break;
 
                 case 'start_work':
@@ -909,8 +1003,8 @@ ${logsContent}
                 case 'close':
                     // Close without specific reason
                     args = ['close', id];
-                    if (params.reason) {
-                        args.push('--reason', params.reason);
+                    if (sanitizedReason) {
+                        args.push('--reason', sanitizedReason);
                     }
                     break;
 
@@ -947,7 +1041,20 @@ ${logsContent}
             return null;
         }
 
-        const attachmentDir = path.join(process.cwd(), '.beads', 'attachments', id);
+        // Security: Validate issue ID format to prevent path traversal
+        if (!isValidBeadsId(id)) {
+            console.error('Invalid beads ID format:', id);
+            return null;
+        }
+
+        const beadsBase = path.join(process.cwd(), '.beads', 'attachments');
+        const attachmentDir = path.join(beadsBase, id);
+
+        // Security: Verify path is within allowed directory
+        if (!isPathWithinAllowed(attachmentDir, [beadsBase])) {
+            console.error('Invalid attachment path');
+            return null;
+        }
 
         try {
             const files = await fs.readdir(attachmentDir);
@@ -966,6 +1073,12 @@ ${logsContent}
             }
 
             if (!filename) {
+                return null;
+            }
+
+            // Security: Validate filename doesn't contain path traversal
+            if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
+                console.error('Invalid filename:', filename);
                 return null;
             }
 
