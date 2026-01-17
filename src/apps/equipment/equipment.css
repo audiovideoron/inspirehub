@@ -1705,3 +1705,252 @@ body {
     border-color: #dc3545;
     box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.2);
 }
+
+/* ============================================================
+   Transfer Requests View (Hotel Only)
+   ============================================================ */
+
+.transfer-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.transfer-card {
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.transfer-card.urgent {
+    border-color: #ffc107;
+    border-width: 2px;
+}
+
+.transfer-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 16px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.transfer-card-header:hover {
+    background: #f8f9fa;
+}
+
+.transfer-card-left {
+    flex: 1;
+    min-width: 0;
+}
+
+.transfer-card-title {
+    font-weight: 600;
+    font-size: 15px;
+    margin: 0 0 4px 0;
+    color: #333;
+}
+
+.transfer-card-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    font-size: 13px;
+    color: #666;
+}
+
+.transfer-card-meta span {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.transfer-requester {
+    font-weight: 500;
+    color: #1a73e8;
+}
+
+.transfer-card-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+}
+
+.transfer-status {
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.transfer-status.submitted {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.transfer-status.approved {
+    background: #d4edda;
+    color: #155724;
+}
+
+.transfer-status.denied {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.transfer-urgency {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    color: #856404;
+    background: #fff3cd;
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+.transfer-card-body {
+    display: none;
+    padding: 0 16px 16px;
+    border-top: 1px solid #eee;
+}
+
+.transfer-card.expanded .transfer-card-body {
+    display: block;
+    padding-top: 16px;
+}
+
+.transfer-items {
+    margin-bottom: 16px;
+}
+
+.transfer-items h4 {
+    margin: 0 0 8px 0;
+    font-size: 13px;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.transfer-item-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.transfer-item-row:last-child {
+    border-bottom: none;
+}
+
+.transfer-item-name {
+    font-weight: 500;
+}
+
+.transfer-item-qty {
+    color: #666;
+    font-size: 13px;
+}
+
+.transfer-details {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-bottom: 16px;
+    padding: 12px;
+    background: #f8f9fa;
+    border-radius: 6px;
+}
+
+.transfer-detail-item {
+    font-size: 13px;
+}
+
+.transfer-detail-label {
+    color: #666;
+    margin-bottom: 2px;
+}
+
+.transfer-detail-value {
+    font-weight: 500;
+    color: #333;
+}
+
+.transfer-notes {
+    margin-bottom: 16px;
+    padding: 12px;
+    background: #f0f7ff;
+    border-radius: 6px;
+    font-size: 13px;
+}
+
+.transfer-notes-label {
+    font-weight: 600;
+    color: #1a73e8;
+    margin-bottom: 4px;
+}
+
+.transfer-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    padding-top: 12px;
+    border-top: 1px solid #eee;
+}
+
+.btn-approve-transfer {
+    background: #28a745;
+    color: white;
+    border: none;
+    padding: 8px 20px;
+    border-radius: 6px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.btn-approve-transfer:hover {
+    background: #218838;
+}
+
+.btn-deny-transfer {
+    background: #dc3545;
+    color: white;
+    border: none;
+    padding: 8px 20px;
+    border-radius: 6px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.btn-deny-transfer:hover {
+    background: #c82333;
+}
+
+/* Transfer Denial Modal */
+#transferDenialReasonInput {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 14px;
+    resize: vertical;
+}
+
+#transferDenialReasonInput:focus {
+    outline: none;
+    border-color: #dc3545;
+    box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.2);
+}
+
+/* Empty state subtext */
+.empty-subtext {
+    font-size: 13px;
+    color: #999;
+    margin-top: 8px;
+}

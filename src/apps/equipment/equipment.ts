@@ -160,6 +160,12 @@ let approvalFilter = '';
 let approvalStatusFilterValue = 'Submitted';
 let pendingDenialRequestId: number | null = null;
 
+// Transfer Requests State (Hotel Only)
+let transferRequests: RequestDetail[] = [];
+let transferFilter = '';
+let transferStatusFilterValue = 'Submitted';
+let pendingTransferDenialRequestId: number | null = null;
+
 // ============================================================
 // DOM Elements
 // ============================================================
@@ -243,6 +249,20 @@ const denialModalClose = document.getElementById('denialModalClose') as HTMLButt
 const denialReasonInput = document.getElementById('denialReasonInput') as HTMLTextAreaElement;
 const denialCancelBtn = document.getElementById('denialCancelBtn') as HTMLButtonElement;
 const denialConfirmBtn = document.getElementById('denialConfirmBtn') as HTMLButtonElement;
+
+// Transfer View Elements (Hotel Only)
+const transferList = document.getElementById('transferList') as HTMLDivElement;
+const transfersLoadingState = document.getElementById('transfersLoadingState') as HTMLDivElement;
+const transfersEmptyState = document.getElementById('transfersEmptyState') as HTMLDivElement;
+const transferSearchInput = document.getElementById('transferSearchInput') as HTMLInputElement;
+const transferStatusFilterSelect = document.getElementById('transferStatusFilter') as HTMLSelectElement;
+
+// Transfer Denial Modal Elements
+const transferDenialModal = document.getElementById('transferDenialModal') as HTMLDivElement;
+const transferDenialModalClose = document.getElementById('transferDenialModalClose') as HTMLButtonElement;
+const transferDenialReasonInput = document.getElementById('transferDenialReasonInput') as HTMLTextAreaElement;
+const transferDenialCancelBtn = document.getElementById('transferDenialCancelBtn') as HTMLButtonElement;
+const transferDenialConfirmBtn = document.getElementById('transferDenialConfirmBtn') as HTMLButtonElement;
 
 // ============================================================
 // API Functions
@@ -524,10 +544,16 @@ async function updateBadgeCounts(): Promise<void> {
             console.error('Failed to update approvals badge:', error);
         }
     } else {
-        // Count pending transfers for hotels (placeholder - always 0 for now)
-        if (transfersBadge) {
-            transfersBadge.textContent = '0';
-            transfersBadge.style.display = 'none'; // Hide when 0
+        // Count pending transfers for hotels
+        try {
+            const transfers = await fetchTransferRequests();
+            const pendingCount = transfers.filter((r: RequestDetail) => r.status === 'Submitted').length;
+            if (transfersBadge) {
+                transfersBadge.textContent = String(pendingCount);
+                transfersBadge.style.display = pendingCount > 0 ? 'inline-flex' : 'none';
+            }
+        } catch (error) {
+            console.error('Failed to update transfers badge:', error);
         }
     }
 }
@@ -799,10 +825,12 @@ function switchView(view: 'catalog' | 'my-requests' | 'transfers' | 'inventory' 
     // Load data for the view
     if (view === 'my-requests') {
         loadMyRequests();
+    } else if (view === 'transfers') {
+        loadTransfers();
     } else if (view === 'approvals') {
         loadApprovals();
     }
-    // TODO: Add loaders for 'transfers' and 'inventory' when implemented
+    // TODO: Add loader for 'inventory' when implemented
 }
 
 // ============================================================
@@ -1176,6 +1204,278 @@ async function handleDenyConfirm(): Promise<void> {
         await loadApprovals(); // Reload the list
     } catch (error) {
         console.error('Failed to deny request:', error);
+        alert(`Failed to deny: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+}
+
+// ============================================================
+// Transfer Requests Functions (Hotel Only)
+// ============================================================
+
+async function fetchTransferRequests(): Promise<RequestDetail[]> {
+    if (!currentBranch) return [];
+
+    // Fetch requests where this location is the source (other locations requesting from us)
+    const response = await api.fetch(`/api/requests?source_location_id=${currentBranch.branchId}`);
+    if (!response.ok) {
+        throw new Error(`Failed to fetch transfer requests: ${response.status}`);
+    }
+    return response.json();
+}
+
+async function approveTransfer(requestId: number): Promise<void> {
+    const response = await api.fetch(`/api/requests/${requestId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            status: 'Approved',
+            reviewed_by_user_id: currentBranch?.branchId ?? null
+        })
+    });
+    if (!response.ok) {
+        const error = await response.text();
+        throw new Error(`Failed to approve transfer: ${error}`);
+    }
+}
+
+async function denyTransfer(requestId: number, reason: string): Promise<void> {
+    const response = await api.fetch(`/api/requests/${requestId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            status: 'Denied',
+            denial_reason: reason,
+            reviewed_by_user_id: currentBranch?.branchId ?? null
+        })
+    });
+    if (!response.ok) {
+        const error = await response.text();
+        throw new Error(`Failed to deny transfer: ${error}`);
+    }
+}
+
+async function loadTransfers(): Promise<void> {
+    transfersLoadingState.style.display = 'flex';
+    transfersEmptyState.style.display = 'none';
+    transferList.innerHTML = '';
+    transferList.appendChild(transfersLoadingState);
+
+    try {
+        transferRequests = await fetchTransferRequests();
+        transfersLoadingState.style.display = 'none';
+        renderTransfers();
+    } catch (error) {
+        console.error('Failed to load transfer requests:', error);
+        transfersLoadingState.style.display = 'none';
+        transfersEmptyState.style.display = 'flex';
+    }
+}
+
+function renderTransfers(): void {
+    transferList.innerHTML = '';
+
+    // Filter requests
+    let filtered = transferRequests;
+
+    // Filter by status
+    if (transferStatusFilterValue) {
+        filtered = filtered.filter((r: RequestDetail) => r.status === transferStatusFilterValue);
+    }
+
+    // Filter by search
+    if (transferFilter) {
+        const search = transferFilter.toLowerCase();
+        filtered = filtered.filter((r: RequestDetail) => {
+            const itemNames = r.lines.map((line: RequestLineResponse) => line.equipment_type?.name?.toLowerCase() || '').join(' ');
+            return itemNames.includes(search) ||
+                r.notes?.toLowerCase().includes(search) ||
+                r.requesting_location?.name?.toLowerCase().includes(search);
+        });
+    }
+
+    if (filtered.length === 0) {
+        transfersEmptyState.style.display = 'flex';
+        return;
+    }
+
+    transfersEmptyState.style.display = 'none';
+
+    filtered.forEach((req: RequestDetail) => {
+        const card = renderTransferCard(req);
+        transferList.appendChild(card);
+    });
+}
+
+function renderTransferCard(req: RequestDetail): HTMLDivElement {
+    const card = document.createElement('div');
+    card.className = 'transfer-card';
+    card.dataset.requestId = String(req.id);
+
+    // Check if urgent (need by date is soon)
+    const needBy = req.needed_from_date ? new Date(req.needed_from_date) : null;
+    const now = new Date();
+    const daysUntilNeeded = needBy ? Math.ceil((needBy.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) : null;
+    const isUrgent = daysUntilNeeded !== null && daysUntilNeeded <= 3 && req.status === 'Submitted';
+
+    if (isUrgent) {
+        card.classList.add('urgent');
+    }
+
+    // Format dates
+    const needByFormatted = needBy ? needBy.toLocaleDateString() : 'Not specified';
+    const returnByFormatted = req.needed_until_date ? new Date(req.needed_until_date).toLocaleDateString() : 'Permanent';
+    const createdFormatted = new Date(req.submitted_at).toLocaleDateString();
+
+    // Get primary item for title
+    const primaryLine = req.lines[0];
+    const title = primaryLine
+        ? `${primaryLine.equipment_type?.name || 'Equipment'}${req.lines.length > 1 ? ` +${req.lines.length - 1} more` : ''}`
+        : 'Equipment Request';
+
+    // Status class
+    const statusClass = req.status.toLowerCase();
+
+    // Get requesting location name
+    const requesterName = req.requesting_location?.name || 'Unknown Location';
+
+    card.innerHTML = `
+        <div class="transfer-card-header">
+            <div class="transfer-card-left">
+                <h3 class="transfer-card-title">${title}</h3>
+                <div class="transfer-card-meta">
+                    <span class="transfer-requester">📍 ${requesterName}</span>
+                    <span>📅 Need by: ${needByFormatted}</span>
+                    <span>🕐 Requested: ${createdFormatted}</span>
+                </div>
+            </div>
+            <div class="transfer-card-right">
+                <span class="transfer-status ${statusClass}">${req.status}</span>
+                ${isUrgent ? '<span class="transfer-urgency">⚠️ Urgent</span>' : ''}
+            </div>
+        </div>
+        <div class="transfer-card-body">
+            <div class="transfer-items">
+                <h4>Items Requested</h4>
+                ${req.lines.map((line: RequestLineResponse) => `
+                    <div class="transfer-item-row">
+                        <span class="transfer-item-name">${line.equipment_type?.name || 'Unknown'}</span>
+                        <span class="transfer-item-qty">Qty: ${line.quantity}</span>
+                    </div>
+                `).join('')}
+            </div>
+            <div class="transfer-details">
+                <div class="transfer-detail-item">
+                    <div class="transfer-detail-label">Requesting Location</div>
+                    <div class="transfer-detail-value">${requesterName}</div>
+                </div>
+                <div class="transfer-detail-item">
+                    <div class="transfer-detail-label">Need By</div>
+                    <div class="transfer-detail-value">${needByFormatted}</div>
+                </div>
+                <div class="transfer-detail-item">
+                    <div class="transfer-detail-label">Return By</div>
+                    <div class="transfer-detail-value">${returnByFormatted}</div>
+                </div>
+                <div class="transfer-detail-item">
+                    <div class="transfer-detail-label">Status</div>
+                    <div class="transfer-detail-value">${req.status}</div>
+                </div>
+            </div>
+            ${req.notes ? `
+                <div class="transfer-notes">
+                    <div class="transfer-notes-label">Notes from requester:</div>
+                    <div>${req.notes}</div>
+                </div>
+            ` : ''}
+            ${req.status === 'Submitted' ? `
+                <div class="transfer-actions">
+                    <button class="btn-deny-transfer" data-action="deny" data-request-id="${req.id}">
+                        Deny
+                    </button>
+                    <button class="btn-approve-transfer" data-action="approve" data-request-id="${req.id}">
+                        Approve
+                    </button>
+                </div>
+            ` : ''}
+            ${req.status === 'Denied' && req.denial_reason ? `
+                <div class="transfer-notes" style="background: #fff3cd;">
+                    <div class="transfer-notes-label" style="color: #856404;">Denial Reason:</div>
+                    <div>${req.denial_reason}</div>
+                </div>
+            ` : ''}
+        </div>
+    `;
+
+    // Toggle expand on header click
+    const header = card.querySelector('.transfer-card-header') as HTMLElement;
+    header.addEventListener('click', () => {
+        card.classList.toggle('expanded');
+    });
+
+    // Handle approve/deny buttons
+    const approveBtn = card.querySelector('[data-action="approve"]');
+    const denyBtn = card.querySelector('[data-action="deny"]');
+
+    if (approveBtn) {
+        approveBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            handleApproveTransfer(req.id);
+        });
+    }
+
+    if (denyBtn) {
+        denyBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            openTransferDenialModal(req.id);
+        });
+    }
+
+    return card;
+}
+
+async function handleApproveTransfer(requestId: number): Promise<void> {
+    if (!confirm('Approve this transfer request?')) return;
+
+    try {
+        await approveTransfer(requestId);
+        await loadTransfers(); // Reload the list
+        updateBadgeCounts(); // Update badge
+    } catch (error) {
+        console.error('Failed to approve transfer:', error);
+        alert(`Failed to approve: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+}
+
+function openTransferDenialModal(requestId: number): void {
+    pendingTransferDenialRequestId = requestId;
+    transferDenialReasonInput.value = '';
+    transferDenialModal.classList.add('active');
+    transferDenialModal.style.display = 'flex';
+    transferDenialReasonInput.focus();
+}
+
+function closeTransferDenialModal(): void {
+    pendingTransferDenialRequestId = null;
+    transferDenialModal.classList.remove('active');
+    transferDenialModal.style.display = 'none';
+}
+
+async function handleTransferDenyConfirm(): Promise<void> {
+    if (!pendingTransferDenialRequestId) return;
+
+    const reason = transferDenialReasonInput.value.trim();
+    if (!reason) {
+        alert('Please provide a reason for denial.');
+        return;
+    }
+
+    try {
+        await denyTransfer(pendingTransferDenialRequestId, reason);
+        closeTransferDenialModal();
+        await loadTransfers(); // Reload the list
+        updateBadgeCounts(); // Update badge
+    } catch (error) {
+        console.error('Failed to deny transfer:', error);
         alert(`Failed to deny: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
 }
@@ -1712,10 +2012,31 @@ async function init(): Promise<void> {
         if (e.target === denialModal) closeDenialModal();
     });
 
+    // Transfer filters (hotel only)
+    transferSearchInput.addEventListener('input', () => {
+        transferFilter = transferSearchInput.value.trim();
+        renderTransfers();
+    });
+
+    transferStatusFilterSelect.addEventListener('change', () => {
+        transferStatusFilterValue = transferStatusFilterSelect.value;
+        renderTransfers();
+    });
+
+    // Transfer denial modal event listeners
+    transferDenialModalClose.addEventListener('click', closeTransferDenialModal);
+    transferDenialCancelBtn.addEventListener('click', closeTransferDenialModal);
+    transferDenialConfirmBtn.addEventListener('click', handleTransferDenyConfirm);
+    transferDenialModal.addEventListener('click', (e) => {
+        if (e.target === transferDenialModal) closeTransferDenialModal();
+    });
+
     // Escape key closes modals
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
-            if (denialModal.classList.contains('active')) {
+            if (transferDenialModal.classList.contains('active')) {
+                closeTransferDenialModal();
+            } else if (denialModal.classList.contains('active')) {
                 closeDenialModal();
             } else if (itemPickerModal.classList.contains('active')) {
                 closeItemPicker();
