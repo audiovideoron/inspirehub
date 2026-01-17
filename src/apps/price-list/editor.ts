@@ -107,21 +107,22 @@ function sanitizeLogMessage(message: string): string {
     return sanitized;
 }
 
-// Log UI events to backend (for bug reports)
+// Log UI events to shell logging service (for bug reports)
 function logEvent(message: string): void {
-    if (!isPortValid()) return;
-
     // Sanitize message to prevent leaking sensitive file paths
     const sanitizedMessage = sanitizeLogMessage(message);
 
     // Fire and forget - don't await or block on logging
-    fetch(`http://localhost:${pythonPort}/api/log`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: sanitizedMessage })
-    }).catch(() => {
-        // Silently ignore logging failures
-    });
+    // Uses shell logging service via api-bootstrap proxy
+    if (window.api?.shellLog?.add) {
+        window.api.shellLog.add({
+            source: 'price-list',
+            level: 'info',
+            message: sanitizedMessage
+        }).catch(() => {
+            // Silently ignore logging failures
+        });
+    }
 }
 
 // Health check configuration

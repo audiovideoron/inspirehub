@@ -16,10 +16,14 @@ from collections import defaultdict
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
 
+# Add parent directory to path for shared imports
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
 import fitz  # PyMuPDF - needed for exception types
 
 from extract_prices import extract_prices, prices_to_json
 from update_pdf import update_prices
+from shared.logging import setup_logging as shared_setup_logging, get_logger
 
 # Configuration
 DEFAULT_PORT = 8080
@@ -78,31 +82,13 @@ logger = logging.getLogger(__name__)
 
 
 def setup_logging(debug: bool):
-    """Configure logging to stdout (and optionally file in debug mode)."""
-    import tempfile
-    log_format = '%(asctime)s - %(levelname)s - %(message)s'
+    """Configure logging using shared logging module.
+
+    Always logs to /tmp/inspirehub-price-list.log for Bug Spray collection.
+    Also logs to stdout for development visibility.
+    """
     level = logging.DEBUG if debug else logging.INFO
-
-    root_logger = logging.getLogger()
-    root_logger.handlers = []
-
-    # Only add file handler in debug mode, using temp directory
-    if debug:
-        try:
-            log_path = os.path.join(tempfile.gettempdir(), DEBUG_LOG)
-            file_handler = logging.FileHandler(log_path, mode='w')
-            file_handler.setFormatter(logging.Formatter(log_format))
-            file_handler.setLevel(level)
-            root_logger.addHandler(file_handler)
-        except Exception as e:
-            print(f"Warning: Could not create log file at {log_path}: {e}", file=sys.stderr)
-
-    stdout_handler = logging.StreamHandler(sys.stdout)
-    stdout_handler.setFormatter(logging.Formatter(log_format))
-    stdout_handler.setLevel(level)
-
-    root_logger.setLevel(level)
-    root_logger.addHandler(stdout_handler)
+    shared_setup_logging('price-list', level=level, also_stdout=True)
 
 
 def load_pdf(pdf_path: str) -> list:
