@@ -637,9 +637,12 @@ def update_request(
         RequestStatus.FULFILLED.value: [
             RequestStatus.RETURNED.value
         ],
+        # Terminal states - no transitions allowed
+        RequestStatus.DENIED.value: [],
+        RequestStatus.RETURNED.value: [],
     }
 
-    if current in valid_transitions and new not in valid_transitions.get(current, []):
+    if new not in valid_transitions.get(current, []):
         raise HTTPException(
             status_code=400,
             detail=f"Cannot transition from {current} to {new}"

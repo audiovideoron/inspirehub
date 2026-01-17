@@ -462,6 +462,55 @@ class TestRequestEndpoints:
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "Cannot transition" in response.json()["detail"]
 
+    def test_denied_is_terminal_state(self, client, submitted_request):
+        """Denied requests cannot transition to any other status."""
+        # First deny the request
+        client.patch(f"/api/requests/{submitted_request.id}", json={
+            "status": RequestStatus.DENIED.value,
+            "denial_reason": "Not available"
+        })
+
+        # Try to transition to various states - all should fail
+        for target_status in [
+            RequestStatus.SUBMITTED.value,
+            RequestStatus.APPROVED.value,
+            RequestStatus.FULFILLED.value,
+            RequestStatus.RETURNED.value,
+        ]:
+            response = client.patch(f"/api/requests/{submitted_request.id}", json={
+                "status": target_status
+            })
+            assert response.status_code == status.HTTP_400_BAD_REQUEST, \
+                f"Denied → {target_status} should fail"
+            assert "Cannot transition" in response.json()["detail"]
+
+    def test_returned_is_terminal_state(self, client, submitted_request):
+        """Returned requests cannot transition to any other status."""
+        # Move through the workflow to Returned
+        client.patch(f"/api/requests/{submitted_request.id}", json={
+            "status": RequestStatus.APPROVED.value
+        })
+        client.patch(f"/api/requests/{submitted_request.id}", json={
+            "status": RequestStatus.FULFILLED.value
+        })
+        client.patch(f"/api/requests/{submitted_request.id}", json={
+            "status": RequestStatus.RETURNED.value
+        })
+
+        # Try to transition to various states - all should fail
+        for target_status in [
+            RequestStatus.SUBMITTED.value,
+            RequestStatus.APPROVED.value,
+            RequestStatus.DENIED.value,
+            RequestStatus.FULFILLED.value,
+        ]:
+            response = client.patch(f"/api/requests/{submitted_request.id}", json={
+                "status": target_status
+            })
+            assert response.status_code == status.HTTP_400_BAD_REQUEST, \
+                f"Returned → {target_status} should fail"
+            assert "Cannot transition" in response.json()["detail"]
+
     def test_fulfill_approved_request(self, client, test_db, submitted_request):
         """Fulfill approved request should succeed."""
         # First approve the request
