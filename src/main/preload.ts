@@ -160,6 +160,32 @@ contextBridge.exposeInMainWorld('api', {
         safeInvoke('log-renderer-console', source, level, message, args),
     getLogFilePath: (): Promise<string> => safeInvoke('get-log-file-path'),
 
+    // Shell logging service (centralized in-memory logging for all modules)
+    shellLog: {
+        add: (params: {
+            source: string;
+            level: 'debug' | 'info' | 'warn' | 'error';
+            message: string;
+            data?: any;
+            timestamp?: string;
+        }): Promise<void> => safeInvoke('shell-log-add', params),
+        get: (params?: {
+            source?: string;
+            since?: string;
+            level?: 'debug' | 'info' | 'warn' | 'error';
+            limit?: number;
+        }): Promise<any[]> => safeInvoke('shell-log-get', params),
+        getFormatted: (params?: {
+            source?: string;
+            since?: string;
+            level?: 'debug' | 'info' | 'warn' | 'error';
+            limit?: number;
+        }): Promise<string[]> => safeInvoke('shell-log-get-formatted', params),
+        hasErrors: (source?: string): Promise<boolean> => safeInvoke('shell-log-has-errors', source),
+        clear: (): Promise<void> => safeInvoke('shell-log-clear'),
+        getSources: (): Promise<string[]> => safeInvoke('shell-log-sources')
+    },
+
     // Bug reporting
     submitBugReport: (bugData: any): Promise<any> => safeInvoke('submit-bug-report', bugData),
     searchSimilarBugs: (query: string): Promise<any> => safeInvoke('search-similar-bugs', query),

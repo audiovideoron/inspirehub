@@ -7,6 +7,7 @@ import {
 import { BugReporter } from './bug-reporter';
 import { initConfig, isFirstRun, getBranchId, setBranchId } from './config-manager';
 import { initFileLogger, mainLog, logRendererError, logRendererConsole, getLogFilePath } from './file-logger';
+import { addLog, getLogs, getLogsForBugSpray, hasErrorLogs, clearLogs, getSources, LogLevel, LogEntry } from './shell-logger';
 
 let mainWindow: BrowserWindow | null = null;
 let bugReporter: BugReporter | null = null;
@@ -258,6 +259,46 @@ ipcMain.handle('log-renderer-console', (event: IpcMainInvokeEvent, source: strin
 
 ipcMain.handle('get-log-file-path', (): string => {
     return getLogFilePath();
+});
+
+// Shell logging service IPC handlers (centralized logging for all modules)
+interface AddLogParams {
+    source: string;
+    level: LogLevel;
+    message: string;
+    data?: any;
+    timestamp?: string;
+}
+
+ipcMain.handle('shell-log-add', (event: IpcMainInvokeEvent, params: AddLogParams): void => {
+    addLog(params.source, params.level, params.message, params.data, params.timestamp);
+});
+
+interface GetLogsParams {
+    source?: string;
+    since?: string;
+    level?: LogLevel;
+    limit?: number;
+}
+
+ipcMain.handle('shell-log-get', (event: IpcMainInvokeEvent, params?: GetLogsParams): LogEntry[] => {
+    return getLogs(params);
+});
+
+ipcMain.handle('shell-log-get-formatted', (event: IpcMainInvokeEvent, params?: GetLogsParams): string[] => {
+    return getLogsForBugSpray(params);
+});
+
+ipcMain.handle('shell-log-has-errors', (event: IpcMainInvokeEvent, source?: string): boolean => {
+    return hasErrorLogs(source);
+});
+
+ipcMain.handle('shell-log-clear', (): void => {
+    clearLogs();
+});
+
+ipcMain.handle('shell-log-sources', (): string[] => {
+    return getSources();
 });
 
 ipcMain.handle('open-file-dialog', async (): Promise<string | null> => {
