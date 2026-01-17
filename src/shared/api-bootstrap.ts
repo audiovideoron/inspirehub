@@ -153,6 +153,146 @@ function createAPIProxy(): any {
         }
     });
 
+    // Add nested shellLog object for shell logging service
+    proxy.shellLog = {
+        add: (params: {
+            source: string;
+            level: 'debug' | 'info' | 'warn' | 'error';
+            message: string;
+            data?: any;
+            timestamp?: string;
+        }) => {
+            return new Promise((resolve, reject) => {
+                const id = `req_${++requestIdCounter}`;
+                pendingRequests.set(id, { resolve, reject });
+
+                window.parent.postMessage({
+                    type: 'api-request',
+                    id,
+                    method: 'shellLog.add',
+                    args: [params]
+                }, '*');
+
+                setTimeout(() => {
+                    if (pendingRequests.has(id)) {
+                        pendingRequests.delete(id);
+                        reject(new Error('API call shellLog.add timed out'));
+                    }
+                }, 30000);
+            });
+        },
+        get: (params?: {
+            source?: string;
+            since?: string;
+            level?: 'debug' | 'info' | 'warn' | 'error';
+            limit?: number;
+        }) => {
+            return new Promise((resolve, reject) => {
+                const id = `req_${++requestIdCounter}`;
+                pendingRequests.set(id, { resolve, reject });
+
+                window.parent.postMessage({
+                    type: 'api-request',
+                    id,
+                    method: 'shellLog.get',
+                    args: [params]
+                }, '*');
+
+                setTimeout(() => {
+                    if (pendingRequests.has(id)) {
+                        pendingRequests.delete(id);
+                        reject(new Error('API call shellLog.get timed out'));
+                    }
+                }, 30000);
+            });
+        },
+        getFormatted: (params?: {
+            source?: string;
+            since?: string;
+            level?: 'debug' | 'info' | 'warn' | 'error';
+            limit?: number;
+        }) => {
+            return new Promise((resolve, reject) => {
+                const id = `req_${++requestIdCounter}`;
+                pendingRequests.set(id, { resolve, reject });
+
+                window.parent.postMessage({
+                    type: 'api-request',
+                    id,
+                    method: 'shellLog.getFormatted',
+                    args: [params]
+                }, '*');
+
+                setTimeout(() => {
+                    if (pendingRequests.has(id)) {
+                        pendingRequests.delete(id);
+                        reject(new Error('API call shellLog.getFormatted timed out'));
+                    }
+                }, 30000);
+            });
+        },
+        hasErrors: (source?: string) => {
+            return new Promise((resolve, reject) => {
+                const id = `req_${++requestIdCounter}`;
+                pendingRequests.set(id, { resolve, reject });
+
+                window.parent.postMessage({
+                    type: 'api-request',
+                    id,
+                    method: 'shellLog.hasErrors',
+                    args: [source]
+                }, '*');
+
+                setTimeout(() => {
+                    if (pendingRequests.has(id)) {
+                        pendingRequests.delete(id);
+                        reject(new Error('API call shellLog.hasErrors timed out'));
+                    }
+                }, 30000);
+            });
+        },
+        clear: () => {
+            return new Promise((resolve, reject) => {
+                const id = `req_${++requestIdCounter}`;
+                pendingRequests.set(id, { resolve, reject });
+
+                window.parent.postMessage({
+                    type: 'api-request',
+                    id,
+                    method: 'shellLog.clear',
+                    args: []
+                }, '*');
+
+                setTimeout(() => {
+                    if (pendingRequests.has(id)) {
+                        pendingRequests.delete(id);
+                        reject(new Error('API call shellLog.clear timed out'));
+                    }
+                }, 30000);
+            });
+        },
+        getSources: () => {
+            return new Promise((resolve, reject) => {
+                const id = `req_${++requestIdCounter}`;
+                pendingRequests.set(id, { resolve, reject });
+
+                window.parent.postMessage({
+                    type: 'api-request',
+                    id,
+                    method: 'shellLog.getSources',
+                    args: []
+                }, '*');
+
+                setTimeout(() => {
+                    if (pendingRequests.has(id)) {
+                        pendingRequests.delete(id);
+                        reject(new Error('API call shellLog.getSources timed out'));
+                    }
+                }, 30000);
+            });
+        }
+    };
+
     return proxy;
 }
 

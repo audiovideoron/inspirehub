@@ -24,7 +24,22 @@ function initShellBridge(): void {
                 throw new Error('API not available');
             }
 
-            const apiMethod = api[method];
+            // Handle nested method calls (e.g., 'shellLog.add')
+            let apiMethod: any;
+            if (method.includes('.')) {
+                const parts = method.split('.');
+                let obj: any = api;
+                for (let i = 0; i < parts.length - 1; i++) {
+                    obj = obj[parts[i]];
+                    if (!obj) {
+                        throw new Error(`Unknown API path: ${method}`);
+                    }
+                }
+                apiMethod = obj[parts[parts.length - 1]];
+            } else {
+                apiMethod = api[method];
+            }
+
             if (typeof apiMethod !== 'function') {
                 throw new Error(`Unknown API method: ${method}`);
             }
