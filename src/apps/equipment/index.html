@@ -23,8 +23,18 @@
         <!-- Navigation Tabs -->
         <div class="nav-tabs">
             <button class="nav-tab active" data-view="catalog">Catalog</button>
-            <button class="nav-tab" data-view="my-requests">My Requests</button>
-            <button class="nav-tab nav-tab-admin" data-view="approvals" id="approvalsTab" style="display: none;">Approvals</button>
+            <!-- Hotel-only tabs -->
+            <button class="nav-tab nav-tab-hotel" data-view="my-requests" id="myRequestsTab">My Requests</button>
+            <button class="nav-tab nav-tab-hotel" data-view="transfers" id="transfersTab">
+                Transfer Requests
+                <span class="tab-badge" id="transfersBadge" style="display: none;">0</span>
+            </button>
+            <!-- Warehouse-only tabs -->
+            <button class="nav-tab nav-tab-admin" data-view="inventory" id="inventoryTab" style="display: none;">Inventory Management</button>
+            <button class="nav-tab nav-tab-admin" data-view="approvals" id="approvalsTab" style="display: none;">
+                Approval Queue
+                <span class="tab-badge" id="approvalsBadge" style="display: none;">0</span>
+            </button>
         </div>
 
         <!-- Catalog View -->
@@ -88,6 +98,26 @@
                 <div class="empty-icon">📋</div>
                 <p>No requests found</p>
                 <button class="btn btn-primary" id="newRequestFromEmpty">Browse Equipment</button>
+            </div>
+        </div>
+
+        <!-- Transfer Requests View (Hotel Only) -->
+        <div class="view-panel" id="transfersView">
+            <div class="placeholder-state">
+                <div class="placeholder-icon">🔄</div>
+                <h3>Transfer Requests</h3>
+                <p>Request equipment transfers between locations.</p>
+                <p class="placeholder-note">Coming soon</p>
+            </div>
+        </div>
+
+        <!-- Inventory Management View (Warehouse Only) -->
+        <div class="view-panel" id="inventoryView">
+            <div class="placeholder-state">
+                <div class="placeholder-icon">📊</div>
+                <h3>Inventory Management</h3>
+                <p>Track and manage equipment across all locations.</p>
+                <p class="placeholder-note">Coming soon</p>
             </div>
         </div>
 

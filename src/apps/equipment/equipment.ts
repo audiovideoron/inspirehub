@@ -145,7 +145,7 @@ let wizardItems: WizardItem[] = [];
 let primaryTypeId: number | null = null;
 
 // My Requests State
-let currentView: 'catalog' | 'my-requests' | 'approvals' = 'catalog';
+let currentView: 'catalog' | 'my-requests' | 'transfers' | 'inventory' | 'approvals' = 'catalog';
 let myRequests: RequestDetail[] = [];
 let requestFilter = '';
 let requestStatusFilter = '';
@@ -205,6 +205,12 @@ const itemPickerGrid = document.getElementById('itemPickerGrid') as HTMLDivEleme
 const navTabs = document.querySelectorAll('.nav-tab');
 const catalogView = document.getElementById('catalogView') as HTMLDivElement;
 const myRequestsView = document.getElementById('myRequestsView') as HTMLDivElement;
+const myRequestsTab = document.getElementById('myRequestsTab') as HTMLButtonElement;
+const transfersView = document.getElementById('transfersView') as HTMLDivElement;
+const transfersTab = document.getElementById('transfersTab') as HTMLButtonElement;
+const transfersBadge = document.getElementById('transfersBadge') as HTMLSpanElement;
+const inventoryView = document.getElementById('inventoryView') as HTMLDivElement;
+const inventoryTab = document.getElementById('inventoryTab') as HTMLButtonElement;
 const pageTitle = document.getElementById('pageTitle') as HTMLHeadingElement;
 
 // My Requests Elements
@@ -223,6 +229,7 @@ const branchSubmitBtn = document.getElementById('branchSubmitBtn') as HTMLButton
 
 // Approvals View Elements (Warehouse Only)
 const approvalsTab = document.getElementById('approvalsTab') as HTMLButtonElement;
+const approvalsBadge = document.getElementById('approvalsBadge') as HTMLSpanElement;
 const approvalsView = document.getElementById('approvalsView') as HTMLDivElement;
 const approvalQueue = document.getElementById('approvalQueue') as HTMLDivElement;
 const approvalsLoadingState = document.getElementById('approvalsLoadingState') as HTMLDivElement;
@@ -482,9 +489,46 @@ function updateUIForBranch(): void {
             : `Equipment - ${currentBranch.locationName}`;
     }
 
-    // Show/hide Approvals tab based on warehouse status
-    if (approvalsTab) {
-        approvalsTab.style.display = currentBranch.isWarehouse ? 'inline-block' : 'none';
+    // Show/hide tabs based on role
+    if (currentBranch.isWarehouse) {
+        // Warehouse sees: Catalog, Inventory Management, Approval Queue
+        myRequestsTab.style.display = 'none';
+        transfersTab.style.display = 'none';
+        inventoryTab.style.display = 'inline-flex';
+        approvalsTab.style.display = 'inline-flex';
+    } else {
+        // Hotels see: Catalog, My Requests, Transfer Requests
+        myRequestsTab.style.display = 'inline-flex';
+        transfersTab.style.display = 'inline-flex';
+        inventoryTab.style.display = 'none';
+        approvalsTab.style.display = 'none';
+    }
+
+    // Update badge counts
+    updateBadgeCounts();
+}
+
+async function updateBadgeCounts(): Promise<void> {
+    if (!currentBranch) return;
+
+    if (currentBranch.isWarehouse) {
+        // Count pending approvals for warehouse
+        try {
+            const allRequests = await fetchMyRequests();
+            const pendingCount = allRequests.filter((r: RequestDetail) => r.status === 'Submitted').length;
+            if (approvalsBadge) {
+                approvalsBadge.textContent = String(pendingCount);
+                approvalsBadge.style.display = pendingCount > 0 ? 'inline-flex' : 'none';
+            }
+        } catch (error) {
+            console.error('Failed to update approvals badge:', error);
+        }
+    } else {
+        // Count pending transfers for hotels (placeholder - always 0 for now)
+        if (transfersBadge) {
+            transfersBadge.textContent = '0';
+            transfersBadge.style.display = 'none'; // Hide when 0
+        }
     }
 }
 
@@ -736,7 +780,7 @@ function updateBackendStatus(connected: boolean, message?: string): void {
 // Navigation Functions
 // ============================================================
 
-function switchView(view: 'catalog' | 'my-requests' | 'approvals'): void {
+function switchView(view: 'catalog' | 'my-requests' | 'transfers' | 'inventory' | 'approvals'): void {
     currentView = view;
 
     // Update tab states
@@ -748,6 +792,8 @@ function switchView(view: 'catalog' | 'my-requests' | 'approvals'): void {
     // Update view panels
     catalogView.classList.toggle('active', view === 'catalog');
     myRequestsView.classList.toggle('active', view === 'my-requests');
+    transfersView.classList.toggle('active', view === 'transfers');
+    inventoryView.classList.toggle('active', view === 'inventory');
     approvalsView.classList.toggle('active', view === 'approvals');
 
     // Load data for the view
@@ -756,6 +802,7 @@ function switchView(view: 'catalog' | 'my-requests' | 'approvals'): void {
     } else if (view === 'approvals') {
         loadApprovals();
     }
+    // TODO: Add loaders for 'transfers' and 'inventory' when implemented
 }
 
 // ============================================================
@@ -1615,7 +1662,7 @@ async function init(): Promise<void> {
     // Navigation tabs
     navTabs.forEach(tab => {
         tab.addEventListener('click', () => {
-            const view = (tab as HTMLElement).dataset.view as 'catalog' | 'my-requests' | 'approvals';
+            const view = (tab as HTMLElement).dataset.view as 'catalog' | 'my-requests' | 'transfers' | 'inventory' | 'approvals';
             if (view) {
                 switchView(view);
             }
