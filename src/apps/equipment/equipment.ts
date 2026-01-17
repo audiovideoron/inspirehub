@@ -4,9 +4,7 @@
  */
 
 declare const api: {
-    fetch: (path: string, options?: RequestInit) => Promise<Response>;
-    getBaseUrl: () => string;
-    waitForBackend: (port: number) => Promise<boolean>;
+    getEquipmentPort: () => Promise<number | null>;
     shellLog?: {
         add: (params: { source: string; level: 'debug' | 'info' | 'warn' | 'error'; message: string; data?: any }) => Promise<void>;
     };
@@ -14,6 +12,16 @@ declare const api: {
 
 // IIFE to create module scope and avoid TypeScript duplicate function errors
 (function() {
+
+// ============================================================
+// Backend Port and URL
+// ============================================================
+
+let equipmentPort: number | null = null;
+
+function getBackendUrl(): string {
+    return `http://localhost:${equipmentPort}`;
+}
 
 // ============================================================
 // Logging Helper
@@ -291,7 +299,7 @@ const transferDenialConfirmBtn = document.getElementById('transferDenialConfirmB
 // ============================================================
 
 async function fetchEquipmentTypes(): Promise<EquipmentType[]> {
-    const response = await api.fetch('/api/equipment-types');
+    const response = await fetch(getBackendUrl() + '/api/equipment-types');
     if (!response.ok) {
         throw new Error(`Failed to fetch equipment types: ${response.status}`);
     }
@@ -299,7 +307,7 @@ async function fetchEquipmentTypes(): Promise<EquipmentType[]> {
 }
 
 async function fetchEquipmentTypeWithParts(typeId: number): Promise<EquipmentTypeWithParts> {
-    const response = await api.fetch(`/api/equipment-types/${typeId}`);
+    const response = await fetch(`${getBackendUrl()}/api/equipment-types/${typeId}`);
     if (!response.ok) {
         throw new Error(`Failed to fetch equipment type: ${response.status}`);
     }
@@ -307,7 +315,7 @@ async function fetchEquipmentTypeWithParts(typeId: number): Promise<EquipmentTyp
 }
 
 async function fetchAvailability(typeId: number): Promise<AvailabilityResponse[]> {
-    const response = await api.fetch(`/api/availability?equipment_type_id=${typeId}`);
+    const response = await fetch(`${getBackendUrl()}/api/availability?equipment_type_id=${typeId}`);
     if (!response.ok) {
         throw new Error(`Failed to fetch availability: ${response.status}`);
     }
@@ -315,7 +323,7 @@ async function fetchAvailability(typeId: number): Promise<AvailabilityResponse[]
 }
 
 async function fetchLocations(): Promise<Location[]> {
-    const response = await api.fetch('/api/locations');
+    const response = await fetch(getBackendUrl() + '/api/locations');
     if (!response.ok) {
         throw new Error(`Failed to fetch locations: ${response.status}`);
     }
@@ -323,7 +331,7 @@ async function fetchLocations(): Promise<Location[]> {
 }
 
 async function createRequest(request: RequestCreate): Promise<void> {
-    const response = await api.fetch('/api/requests', {
+    const response = await fetch(getBackendUrl() + '/api/requests', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(request),
@@ -336,7 +344,7 @@ async function createRequest(request: RequestCreate): Promise<void> {
 
 async function fetchMyRequests(): Promise<RequestDetail[]> {
     // Fetch all requests - in a real app, would filter by user/location
-    const response = await api.fetch('/api/requests');
+    const response = await fetch(getBackendUrl() + '/api/requests');
     if (!response.ok) {
         throw new Error(`Failed to fetch requests: ${response.status}`);
     }
@@ -346,7 +354,7 @@ async function fetchMyRequests(): Promise<RequestDetail[]> {
     const details: RequestDetail[] = [];
     for (const req of requests) {
         try {
-            const detailResponse = await api.fetch(`/api/requests/${req.id}`);
+            const detailResponse = await fetch(`${getBackendUrl()}/api/requests/${req.id}`);
             if (detailResponse.ok) {
                 details.push(await detailResponse.json());
             }
@@ -358,7 +366,7 @@ async function fetchMyRequests(): Promise<RequestDetail[]> {
 }
 
 async function approveRequest(requestId: number): Promise<void> {
-    const response = await api.fetch(`/api/requests/${requestId}`, {
+    const response = await fetch(`${getBackendUrl()}/api/requests/${requestId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -373,7 +381,7 @@ async function approveRequest(requestId: number): Promise<void> {
 }
 
 async function denyRequest(requestId: number, reason: string): Promise<void> {
-    const response = await api.fetch(`/api/requests/${requestId}`, {
+    const response = await fetch(`${getBackendUrl()}/api/requests/${requestId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -414,7 +422,7 @@ function saveBranchConfig(config: BranchConfig): void {
 
 async function validateBranchId(branchId: string): Promise<Location | null> {
     try {
-        const response = await api.fetch('/api/locations');
+        const response = await fetch(getBackendUrl() + '/api/locations');
         if (!response.ok) {
             throw new Error('Failed to fetch locations');
         }
@@ -1248,7 +1256,7 @@ async function fetchTransferRequests(): Promise<RequestDetail[]> {
     if (!currentBranch) return [];
 
     // Fetch requests where this location is the source (other locations requesting from us)
-    const response = await api.fetch(`/api/requests?source_location_id=${currentBranch.branchId}`);
+    const response = await fetch(`${getBackendUrl()}/api/requests?source_location_id=${currentBranch.branchId}`);
     if (!response.ok) {
         throw new Error(`Failed to fetch transfer requests: ${response.status}`);
     }
@@ -1256,7 +1264,7 @@ async function fetchTransferRequests(): Promise<RequestDetail[]> {
 }
 
 async function approveTransfer(requestId: number): Promise<void> {
-    const response = await api.fetch(`/api/requests/${requestId}`, {
+    const response = await fetch(`${getBackendUrl()}/api/requests/${requestId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1271,7 +1279,7 @@ async function approveTransfer(requestId: number): Promise<void> {
 }
 
 async function denyTransfer(requestId: number, reason: string): Promise<void> {
-    const response = await api.fetch(`/api/requests/${requestId}`, {
+    const response = await fetch(`${getBackendUrl()}/api/requests/${requestId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -2100,8 +2108,11 @@ async function init(): Promise<void> {
     // Wait for backend and load data
     try {
         updateBackendStatus(false, 'Connecting...');
-        await api.waitForBackend(8090);
-        logEvent('Backend connected');
+        equipmentPort = await api.getEquipmentPort();
+        if (!equipmentPort) {
+            throw new Error('Equipment backend port not available');
+        }
+        logEvent(`Backend available on port ${equipmentPort}`);
 
         // Check for saved branch config
         currentBranch = loadSavedBranch();

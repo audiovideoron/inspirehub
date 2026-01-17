@@ -85,11 +85,17 @@ function createWindow(): void {
         mainWindow.webContents.openDevTools();
     }
 
-    // Capture all renderer console messages and log errors/warnings to file
+    // Capture all renderer console messages and output to terminal + file
     mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
         // level: 0=verbose, 1=info, 2=warning, 3=error
         const levelMap: Record<number, string> = { 0: 'DEBUG', 1: 'INFO', 2: 'WARN', 3: 'ERROR' };
         const levelName = levelMap[level] || 'INFO';
+
+        // Extract source file name from full path
+        const sourceName = sourceId ? sourceId.split('/').pop()?.replace(/\?.*$/, '') : 'unknown';
+
+        // Output ALL console messages to terminal for debugging
+        console.log(`[Renderer ${levelName}] [${sourceName}:${line}] ${message}`);
 
         // Log warnings and errors to file
         if (level >= 2) {
