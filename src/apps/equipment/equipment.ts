@@ -9,6 +9,9 @@ declare const api: {
     waitForBackend: (port: number) => Promise<boolean>;
 };
 
+// IIFE to create module scope and avoid TypeScript duplicate function errors
+(function() {
+
 // ============================================================
 // Types
 // ============================================================
@@ -85,6 +88,36 @@ interface WizardItem {
     selectedPartIds: Set<number>;
 }
 
+interface RequestLineResponse {
+    id: number;
+    equipment_type_id: number;
+    quantity: number;
+    assigned_item_id: number | null;
+    include_parts: boolean;
+    equipment_type: EquipmentType | null;
+}
+
+interface RequestResponse {
+    id: number;
+    requesting_location_id: number;
+    source_location_id: number;
+    requester_user_id: string | null;
+    status: string;
+    needed_from_date: string;
+    needed_until_date: string | null;
+    submitted_at: string;
+    reviewed_at: string | null;
+    reviewed_by_user_id: string | null;
+    denial_reason: string | null;
+    notes: string | null;
+}
+
+interface RequestDetail extends RequestResponse {
+    requesting_location: Location | null;
+    source_location: Location | null;
+    lines: RequestLineResponse[];
+}
+
 // ============================================================
 // State
 // ============================================================
@@ -100,6 +133,12 @@ let locations: Location[] = [];
 let wizardStep = 1;
 let wizardItems: WizardItem[] = [];
 let primaryTypeId: number | null = null;
+
+// My Requests State
+let currentView: 'catalog' | 'my-requests' = 'catalog';
+let myRequests: RequestDetail[] = [];
+let requestFilter = '';
+let requestStatusFilter = '';
 
 // ============================================================
 // DOM Elements
@@ -141,6 +180,20 @@ const itemPickerModal = document.getElementById('itemPickerModal') as HTMLDivEle
 const itemPickerClose = document.getElementById('itemPickerClose') as HTMLButtonElement;
 const itemPickerSearch = document.getElementById('itemPickerSearch') as HTMLInputElement;
 const itemPickerGrid = document.getElementById('itemPickerGrid') as HTMLDivElement;
+
+// Navigation & View Elements
+const navTabs = document.querySelectorAll('.nav-tab');
+const catalogView = document.getElementById('catalogView') as HTMLDivElement;
+const myRequestsView = document.getElementById('myRequestsView') as HTMLDivElement;
+const pageTitle = document.getElementById('pageTitle') as HTMLHeadingElement;
+
+// My Requests Elements
+const requestList = document.getElementById('requestList') as HTMLDivElement;
+const requestsLoadingState = document.getElementById('requestsLoadingState') as HTMLDivElement;
+const requestsEmptyState = document.getElementById('requestsEmptyState') as HTMLDivElement;
+const requestSearchInput = document.getElementById('requestSearchInput') as HTMLInputElement;
+const requestStatusFilterSelect = document.getElementById('requestStatusFilter') as HTMLSelectElement;
+const newRequestFromEmpty = document.getElementById('newRequestFromEmpty') as HTMLButtonElement;
 
 // ============================================================
 // API Functions
@@ -188,6 +241,29 @@ async function createRequest(request: RequestCreate): Promise<void> {
         const error = await response.json();
         throw new Error(error.detail || `Failed to create request: ${response.status}`);
     }
+}
+
+async function fetchMyRequests(): Promise<RequestDetail[]> {
+    // Fetch all requests - in a real app, would filter by user/location
+    const response = await api.fetch('/api/requests');
+    if (!response.ok) {
+        throw new Error(`Failed to fetch requests: ${response.status}`);
+    }
+    const requests: RequestResponse[] = await response.json();
+
+    // Fetch full details for each request
+    const details: RequestDetail[] = [];
+    for (const req of requests) {
+        try {
+            const detailResponse = await api.fetch(`/api/requests/${req.id}`);
+            if (detailResponse.ok) {
+                details.push(await detailResponse.json());
+            }
+        } catch (error) {
+            console.warn(`Failed to fetch details for request ${req.id}:`, error);
+        }
+    }
+    return details;
 }
 
 // ============================================================
@@ -406,6 +482,183 @@ function updateBackendStatus(connected: boolean, message?: string): void {
         backendStatus.classList.add('error');
         statusText.textContent = message ?? 'Disconnected';
     }
+}
+
+// ============================================================
+// Navigation Functions
+// ============================================================
+
+function switchView(view: 'catalog' | 'my-requests'): void {
+    currentView = view;
+
+    // Update tab states
+    navTabs.forEach(tab => {
+        const tabView = (tab as HTMLElement).dataset.view;
+        tab.classList.toggle('active', tabView === view);
+    });
+
+    // Update view panels
+    catalogView.classList.toggle('active', view === 'catalog');
+    myRequestsView.classList.toggle('active', view === 'my-requests');
+
+    // Load data for the view
+    if (view === 'my-requests') {
+        loadMyRequests();
+    }
+}
+
+// ============================================================
+// My Requests Functions
+// ============================================================
+
+async function loadMyRequests(): Promise<void> {
+    requestsLoadingState.style.display = 'flex';
+    requestsEmptyState.style.display = 'none';
+    requestList.innerHTML = '';
+    requestList.appendChild(requestsLoadingState);
+
+    try {
+        myRequests = await fetchMyRequests();
+        requestsLoadingState.style.display = 'none';
+        renderMyRequests();
+    } catch (error) {
+        console.error('Failed to load requests:', error);
+        requestsLoadingState.style.display = 'none';
+        requestsEmptyState.style.display = 'flex';
+    }
+}
+
+function renderMyRequests(): void {
+    // Filter requests
+    let filtered = myRequests;
+
+    if (requestFilter) {
+        const search = requestFilter.toLowerCase();
+        filtered = filtered.filter(req => {
+            const sourceName = req.source_location?.name?.toLowerCase() ?? '';
+            const items = req.lines.map(l => l.equipment_type?.name?.toLowerCase() ?? '').join(' ');
+            return sourceName.includes(search) ||
+                   items.includes(search) ||
+                   String(req.id).includes(search);
+        });
+    }
+
+    if (requestStatusFilter) {
+        filtered = filtered.filter(req => req.status === requestStatusFilter);
+    }
+
+    // Clear and render
+    requestList.innerHTML = '';
+
+    if (filtered.length === 0) {
+        requestsEmptyState.style.display = 'flex';
+        return;
+    }
+
+    requestsEmptyState.style.display = 'none';
+
+    for (const req of filtered) {
+        requestList.appendChild(renderRequestCard(req));
+    }
+}
+
+function renderRequestCard(req: RequestDetail): HTMLDivElement {
+    const card = document.createElement('div');
+    card.className = 'request-card';
+    card.dataset.requestId = String(req.id);
+
+    const statusClass = req.status.toLowerCase();
+    const submittedDate = new Date(req.submitted_at).toLocaleDateString();
+    const itemCount = req.lines.reduce((sum, l) => sum + l.quantity, 0);
+    const itemNames = req.lines
+        .map(l => l.equipment_type?.name ?? `Type #${l.equipment_type_id}`)
+        .slice(0, 2)
+        .join(', ');
+    const moreItems = req.lines.length > 2 ? ` +${req.lines.length - 2} more` : '';
+
+    card.innerHTML = `
+        <div class="request-card-header">
+            <div class="request-card-left">
+                <span class="request-id">Request #${req.id}</span>
+                <span class="request-date">${submittedDate}</span>
+                <div class="request-summary">
+                    <span class="request-summary-item">${itemCount} item${itemCount !== 1 ? 's' : ''}</span>
+                    <span class="request-summary-item">${escapeHtml(itemNames)}${moreItems}</span>
+                </div>
+            </div>
+            <div class="request-card-right">
+                <span class="status-badge ${statusClass}">${escapeHtml(req.status)}</span>
+                <span class="expand-icon">&#9660;</span>
+            </div>
+        </div>
+        <div class="request-card-body">
+            <div class="request-info-grid">
+                <div class="request-info-item">
+                    <span class="request-info-label">Source</span>
+                    <span class="request-info-value">${escapeHtml(req.source_location?.name ?? 'Unknown')}</span>
+                </div>
+                <div class="request-info-item">
+                    <span class="request-info-label">Destination</span>
+                    <span class="request-info-value">${escapeHtml(req.requesting_location?.name ?? 'Unknown')}</span>
+                </div>
+                <div class="request-info-item">
+                    <span class="request-info-label">Need By</span>
+                    <span class="request-info-value">${req.needed_from_date}</span>
+                </div>
+                <div class="request-info-item">
+                    <span class="request-info-label">Return By</span>
+                    <span class="request-info-value">${req.needed_until_date ?? 'Permanent'}</span>
+                </div>
+                ${req.reviewed_at ? `
+                <div class="request-info-item">
+                    <span class="request-info-label">Reviewed</span>
+                    <span class="request-info-value">${new Date(req.reviewed_at).toLocaleDateString()}</span>
+                </div>
+                ` : ''}
+            </div>
+
+            <div class="request-items-section">
+                <h4>Requested Items</h4>
+                <div class="request-items-list">
+                    ${req.lines.map(line => `
+                        <div class="request-item">
+                            <div>
+                                <span class="request-item-name">${escapeHtml(line.equipment_type?.name ?? `Type #${line.equipment_type_id}`)}</span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <span class="request-item-qty">x${line.quantity}</span>
+                                <span class="request-item-status ${line.assigned_item_id ? 'assigned' : 'pending'}">
+                                    ${line.assigned_item_id ? 'Assigned' : 'Pending'}
+                                </span>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+
+            ${req.notes ? `
+            <div class="request-notes">
+                <div class="request-notes-label">Notes</div>
+                <div class="request-notes-text">${escapeHtml(req.notes)}</div>
+            </div>
+            ` : ''}
+
+            ${req.denial_reason ? `
+            <div class="denial-reason">
+                <div class="denial-reason-label">Denial Reason</div>
+                <div class="denial-reason-text">${escapeHtml(req.denial_reason)}</div>
+            </div>
+            ` : ''}
+        </div>
+    `;
+
+    // Toggle expansion on header click
+    const header = card.querySelector('.request-card-header');
+    header?.addEventListener('click', () => {
+        card.classList.toggle('expanded');
+    });
+
+    return card;
 }
 
 // ============================================================
@@ -882,6 +1135,31 @@ async function init(): Promise<void> {
         renderItemPicker(itemPickerSearch.value);
     });
 
+    // Navigation tabs
+    navTabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            const view = (tab as HTMLElement).dataset.view as 'catalog' | 'my-requests';
+            if (view) {
+                switchView(view);
+            }
+        });
+    });
+
+    // My Requests filters
+    requestSearchInput.addEventListener('input', () => {
+        requestFilter = requestSearchInput.value.trim();
+        renderMyRequests();
+    });
+
+    requestStatusFilterSelect.addEventListener('change', () => {
+        requestStatusFilter = requestStatusFilterSelect.value;
+        renderMyRequests();
+    });
+
+    newRequestFromEmpty.addEventListener('click', () => {
+        switchView('catalog');
+    });
+
     // Escape key closes modals
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
@@ -908,3 +1186,5 @@ async function init(): Promise<void> {
 
 // Start the app
 init();
+
+})(); // End IIFE

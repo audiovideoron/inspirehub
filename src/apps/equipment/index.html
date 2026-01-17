@@ -11,7 +11,7 @@
     <div class="container">
         <!-- Header -->
         <div class="header">
-            <h1>Equipment Catalog</h1>
+            <h1 id="pageTitle">Equipment</h1>
             <div class="header-actions">
                 <div class="backend-status" id="backendStatus" title="Backend status">
                     <span class="status-dot"></span>
@@ -20,30 +20,74 @@
             </div>
         </div>
 
-        <!-- Filters -->
-        <div class="filters">
-            <div class="search-box">
-                <input type="text" id="searchInput" placeholder="Search equipment..." />
+        <!-- Navigation Tabs -->
+        <div class="nav-tabs">
+            <button class="nav-tab active" data-view="catalog">Catalog</button>
+            <button class="nav-tab" data-view="my-requests">My Requests</button>
+        </div>
+
+        <!-- Catalog View -->
+        <div class="view-panel active" id="catalogView">
+            <!-- Filters -->
+            <div class="filters">
+                <div class="search-box">
+                    <input type="text" id="searchInput" placeholder="Search equipment..." />
+                </div>
+                <div class="category-filter">
+                    <select id="categoryFilter">
+                        <option value="">All Categories</option>
+                    </select>
+                </div>
             </div>
-            <div class="category-filter">
-                <select id="categoryFilter">
-                    <option value="">All Categories</option>
-                </select>
+
+            <!-- Catalog Grid -->
+            <div class="catalog-grid" id="catalogGrid">
+                <div class="loading-state" id="loadingState">
+                    <div class="spinner"></div>
+                    <p>Loading equipment...</p>
+                </div>
+            </div>
+
+            <!-- Empty State -->
+            <div class="empty-state" id="emptyState" style="display: none;">
+                <div class="empty-icon">📦</div>
+                <p>No equipment found</p>
             </div>
         </div>
 
-        <!-- Catalog Grid -->
-        <div class="catalog-grid" id="catalogGrid">
-            <div class="loading-state" id="loadingState">
-                <div class="spinner"></div>
-                <p>Loading equipment...</p>
+        <!-- My Requests View -->
+        <div class="view-panel" id="myRequestsView">
+            <!-- Request Filters -->
+            <div class="filters">
+                <div class="search-box">
+                    <input type="text" id="requestSearchInput" placeholder="Search requests..." />
+                </div>
+                <div class="status-filter">
+                    <select id="requestStatusFilter">
+                        <option value="">All Statuses</option>
+                        <option value="Submitted">Submitted</option>
+                        <option value="Approved">Approved</option>
+                        <option value="Denied">Denied</option>
+                        <option value="Fulfilled">Fulfilled</option>
+                        <option value="Returned">Returned</option>
+                    </select>
+                </div>
             </div>
-        </div>
 
-        <!-- Empty State -->
-        <div class="empty-state" id="emptyState" style="display: none;">
-            <div class="empty-icon">📦</div>
-            <p>No equipment found</p>
+            <!-- Request List -->
+            <div class="request-list" id="requestList">
+                <div class="loading-state" id="requestsLoadingState">
+                    <div class="spinner"></div>
+                    <p>Loading requests...</p>
+                </div>
+            </div>
+
+            <!-- Empty Requests State -->
+            <div class="empty-state" id="requestsEmptyState" style="display: none;">
+                <div class="empty-icon">📋</div>
+                <p>No requests found</p>
+                <button class="btn btn-primary" id="newRequestFromEmpty">Browse Equipment</button>
+            </div>
         </div>
     </div>
 

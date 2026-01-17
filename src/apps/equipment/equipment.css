@@ -864,3 +864,303 @@ body {
     color: #28a745;
     margin-top: 4px;
 }
+
+/* ============================================================
+   Navigation Tabs & View Panels
+   ============================================================ */
+
+.nav-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 20px;
+    border-bottom: 2px solid #eee;
+    padding-bottom: 0;
+}
+
+.nav-tab {
+    padding: 12px 24px;
+    background: none;
+    border: none;
+    font-size: 14px;
+    font-weight: 500;
+    color: #666;
+    cursor: pointer;
+    position: relative;
+    transition: color 0.2s;
+}
+
+.nav-tab:hover {
+    color: #333;
+}
+
+.nav-tab.active {
+    color: #0066cc;
+}
+
+.nav-tab.active::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: #0066cc;
+}
+
+.view-panel {
+    display: none;
+}
+
+.view-panel.active {
+    display: block;
+}
+
+/* ============================================================
+   My Requests View
+   ============================================================ */
+
+.request-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.request-card {
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    overflow: hidden;
+    transition: box-shadow 0.2s;
+}
+
+.request-card:hover {
+    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+}
+
+.request-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 20px;
+    cursor: pointer;
+    background: #fafafa;
+    border-bottom: 1px solid #eee;
+}
+
+.request-card.expanded .request-card-header {
+    background: #f0f7ff;
+}
+
+.request-card-left {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.request-id {
+    font-weight: 600;
+    color: #333;
+    font-size: 14px;
+}
+
+.request-date {
+    font-size: 13px;
+    color: #666;
+}
+
+.request-card-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+/* Status Badges */
+.status-badge {
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+    text-transform: uppercase;
+}
+
+.status-badge.submitted {
+    background: #e3f2fd;
+    color: #1976d2;
+}
+
+.status-badge.approved {
+    background: #e8f5e9;
+    color: #388e3c;
+}
+
+.status-badge.denied {
+    background: #ffebee;
+    color: #d32f2f;
+}
+
+.status-badge.fulfilled {
+    background: #f3e5f5;
+    color: #7b1fa2;
+}
+
+.status-badge.returned {
+    background: #f5f5f5;
+    color: #616161;
+}
+
+.expand-icon {
+    font-size: 18px;
+    color: #888;
+    transition: transform 0.2s;
+}
+
+.request-card.expanded .expand-icon {
+    transform: rotate(180deg);
+}
+
+/* Request Card Body */
+.request-card-body {
+    display: none;
+    padding: 20px;
+}
+
+.request-card.expanded .request-card-body {
+    display: block;
+}
+
+.request-info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.request-info-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.request-info-label {
+    font-size: 12px;
+    color: #888;
+    text-transform: uppercase;
+    font-weight: 500;
+}
+
+.request-info-value {
+    font-size: 14px;
+    color: #333;
+}
+
+/* Request Items List */
+.request-items-section {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid #eee;
+}
+
+.request-items-section h4 {
+    font-size: 13px;
+    font-weight: 600;
+    color: #555;
+    margin-bottom: 10px;
+}
+
+.request-items-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.request-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 12px;
+    background: #f8f9fa;
+    border-radius: 6px;
+}
+
+.request-item-name {
+    font-weight: 500;
+    font-size: 14px;
+}
+
+.request-item-qty {
+    color: #666;
+    font-size: 13px;
+}
+
+.request-item-status {
+    font-size: 12px;
+    padding: 2px 8px;
+    border-radius: 4px;
+}
+
+.request-item-status.assigned {
+    background: #e8f5e9;
+    color: #388e3c;
+}
+
+.request-item-status.pending {
+    background: #fff3e0;
+    color: #f57c00;
+}
+
+/* Request Notes */
+.request-notes {
+    margin-top: 15px;
+    padding: 12px;
+    background: #fffde7;
+    border-radius: 6px;
+    border-left: 3px solid #ffc107;
+}
+
+.request-notes-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #666;
+    margin-bottom: 4px;
+}
+
+.request-notes-text {
+    font-size: 14px;
+    color: #333;
+}
+
+/* Denial Reason */
+.denial-reason {
+    margin-top: 15px;
+    padding: 12px;
+    background: #ffebee;
+    border-radius: 6px;
+    border-left: 3px solid #d32f2f;
+}
+
+.denial-reason-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #d32f2f;
+    margin-bottom: 4px;
+}
+
+.denial-reason-text {
+    font-size: 14px;
+    color: #333;
+}
+
+/* Request Summary Row */
+.request-summary {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.request-summary-item {
+    font-size: 12px;
+    color: #666;
+    background: #f0f0f0;
+    padding: 2px 8px;
+    border-radius: 4px;
+}

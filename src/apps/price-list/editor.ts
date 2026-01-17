@@ -1,3 +1,6 @@
+// IIFE to create module scope and avoid TypeScript duplicate function errors
+(function() {
+
 // Type definitions
 interface Price {
     id: number;
@@ -777,3 +780,5 @@ async function exportPDF(): Promise<void> {
         }
     }
 }
+
+})(); // End IIFE
