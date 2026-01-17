@@ -435,3 +435,432 @@ body {
     padding: 8px 12px;
     font-size: 13px;
 }
+
+/* ============================================================
+   Request Wizard Styles
+   ============================================================ */
+
+.wizard-modal {
+    max-width: 650px;
+}
+
+/* Wizard Steps Indicator */
+.wizard-steps {
+    display: flex;
+    justify-content: center;
+    gap: 40px;
+    padding: 20px;
+    border-bottom: 1px solid #eee;
+    background: #fafafa;
+}
+
+.wizard-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    opacity: 0.5;
+    transition: opacity 0.2s;
+}
+
+.wizard-step.active,
+.wizard-step.completed {
+    opacity: 1;
+}
+
+.step-number {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #ddd;
+    color: #666;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 14px;
+    transition: background 0.2s, color 0.2s;
+}
+
+.wizard-step.active .step-number {
+    background: #0066cc;
+    color: white;
+}
+
+.wizard-step.completed .step-number {
+    background: #28a745;
+    color: white;
+}
+
+.step-label {
+    font-size: 12px;
+    color: #666;
+    font-weight: 500;
+}
+
+.wizard-step.active .step-label {
+    color: #0066cc;
+}
+
+/* Wizard Panels */
+.wizard-body {
+    min-height: 350px;
+}
+
+.wizard-panel {
+    display: none;
+    padding: 10px 0;
+}
+
+.wizard-panel.active {
+    display: block;
+}
+
+.wizard-panel h3 {
+    font-size: 16px;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 20px;
+}
+
+.wizard-panel h4 {
+    font-size: 14px;
+    font-weight: 600;
+    color: #555;
+    margin: 20px 0 12px;
+}
+
+/* Form Elements */
+.form-group {
+    margin-bottom: 18px;
+}
+
+.form-group label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    color: #555;
+    margin-bottom: 6px;
+}
+
+.form-group input[type="date"],
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 14px;
+    transition: border-color 0.2s;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: #0066cc;
+}
+
+.form-group textarea {
+    resize: vertical;
+    font-family: inherit;
+}
+
+.checkbox-label {
+    display: flex !important;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+}
+
+.checkbox-label span {
+    font-weight: normal;
+}
+
+/* Selected Equipment Display */
+.selected-equipment {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 15px;
+}
+
+.selected-equipment-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.selected-equipment-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.selected-equipment-info {
+    flex: 1;
+}
+
+.selected-equipment-name {
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 2px;
+}
+
+.selected-equipment-category {
+    font-size: 12px;
+    color: #666;
+}
+
+.selected-equipment-qty {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.qty-input {
+    width: 60px;
+    padding: 6px 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    text-align: center;
+    font-size: 14px;
+}
+
+/* Parts Checklist */
+.parts-section {
+    background: #fff;
+    border: 1px solid #eee;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 15px;
+}
+
+.parts-checklist {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.part-checkbox-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    background: #f8f9fa;
+    border-radius: 6px;
+}
+
+.part-checkbox-item input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+}
+
+.part-checkbox-item.required {
+    background: #fff3cd;
+}
+
+.part-checkbox-label {
+    flex: 1;
+    font-size: 14px;
+}
+
+.part-checkbox-label .part-name {
+    font-weight: 500;
+}
+
+.part-checkbox-label .part-qty {
+    color: #666;
+    font-size: 12px;
+}
+
+.part-required-badge {
+    background: #dc3545;
+    color: white;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+/* Add More Section */
+.add-more-section {
+    text-align: center;
+    padding: 15px 0;
+}
+
+/* Additional Items */
+.additional-items {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.additional-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 6px;
+}
+
+.additional-item-info {
+    flex: 1;
+}
+
+.additional-item-name {
+    font-weight: 500;
+    font-size: 14px;
+}
+
+.additional-item-category {
+    font-size: 12px;
+    color: #666;
+}
+
+.remove-item-btn {
+    background: none;
+    border: none;
+    color: #dc3545;
+    cursor: pointer;
+    padding: 4px 8px;
+    font-size: 18px;
+}
+
+.remove-item-btn:hover {
+    background: #fee;
+    border-radius: 4px;
+}
+
+/* Review Section */
+.review-section {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 15px;
+}
+
+.review-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid #eee;
+}
+
+.review-row:last-child {
+    border-bottom: none;
+}
+
+.review-label {
+    font-weight: 500;
+    color: #666;
+}
+
+.review-value {
+    color: #333;
+}
+
+.review-items {
+    margin-top: 10px;
+}
+
+.review-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid #eee;
+}
+
+.review-item:last-child {
+    border-bottom: none;
+}
+
+.review-item-name {
+    font-weight: 500;
+}
+
+.review-item-qty {
+    color: #666;
+    font-size: 13px;
+}
+
+.review-item-parts {
+    font-size: 12px;
+    color: #888;
+    margin-top: 2px;
+}
+
+/* Wizard Footer */
+.wizard-footer {
+    display: flex;
+    align-items: center;
+}
+
+.footer-spacer {
+    flex: 1;
+}
+
+/* Item Picker Modal */
+.item-picker-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 12px;
+    max-height: 400px;
+    overflow-y: auto;
+    padding: 10px 0;
+}
+
+.item-picker-card {
+    background: #f8f9fa;
+    border: 2px solid transparent;
+    border-radius: 8px;
+    padding: 12px;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+}
+
+.item-picker-card:hover {
+    border-color: #0066cc;
+    background: #f0f7ff;
+}
+
+.item-picker-card.selected {
+    border-color: #0066cc;
+    background: #e3f2fd;
+}
+
+.item-picker-icon {
+    font-size: 28px;
+    margin-bottom: 8px;
+}
+
+.item-picker-name {
+    font-weight: 500;
+    font-size: 13px;
+    margin-bottom: 2px;
+}
+
+.item-picker-category {
+    font-size: 11px;
+    color: #666;
+}
+
+.item-picker-availability {
+    font-size: 11px;
+    color: #28a745;
+    margin-top: 4px;
+}

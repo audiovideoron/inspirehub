@@ -62,6 +62,29 @@ interface PaginatedResponse<T> {
     pages: number;
 }
 
+interface RequestLineCreate {
+    equipment_type_id: number;
+    quantity: number;
+    include_parts: boolean;
+}
+
+interface RequestCreate {
+    requesting_location_id: number;
+    source_location_id: number;
+    needed_from_date: string;
+    needed_until_date: string | null;
+    notes: string | null;
+    lines: RequestLineCreate[];
+}
+
+interface WizardItem {
+    typeId: number;
+    type: EquipmentTypeWithParts;
+    quantity: number;
+    includeParts: boolean;
+    selectedPartIds: Set<number>;
+}
+
 // ============================================================
 // State
 // ============================================================
@@ -71,6 +94,12 @@ let categories: string[] = [];
 let availabilityByType: Map<number, AvailabilityResponse[]> = new Map();
 let currentFilter = '';
 let currentCategory = '';
+
+// Wizard State
+let locations: Location[] = [];
+let wizardStep = 1;
+let wizardItems: WizardItem[] = [];
+let primaryTypeId: number | null = null;
 
 // ============================================================
 // DOM Elements
@@ -88,6 +117,30 @@ const modalBody = document.getElementById('modalBody') as HTMLDivElement;
 const modalClose = document.getElementById('modalClose') as HTMLButtonElement;
 const modalCancelBtn = document.getElementById('modalCancelBtn') as HTMLButtonElement;
 const modalRequestBtn = document.getElementById('modalRequestBtn') as HTMLButtonElement;
+
+// Wizard DOM Elements
+const requestWizard = document.getElementById('requestWizard') as HTMLDivElement;
+const wizardClose = document.getElementById('wizardClose') as HTMLButtonElement;
+const wizardBackBtn = document.getElementById('wizardBackBtn') as HTMLButtonElement;
+const wizardCancelBtn = document.getElementById('wizardCancelBtn') as HTMLButtonElement;
+const wizardNextBtn = document.getElementById('wizardNextBtn') as HTMLButtonElement;
+const sourceLocationSelect = document.getElementById('sourceLocation') as HTMLSelectElement;
+const needByDateInput = document.getElementById('needByDate') as HTMLInputElement;
+const returnByDateInput = document.getElementById('returnByDate') as HTMLInputElement;
+const permanentTransferCheckbox = document.getElementById('permanentTransfer') as HTMLInputElement;
+const returnDateGroup = document.getElementById('returnDateGroup') as HTMLDivElement;
+const selectedEquipmentDiv = document.getElementById('selectedEquipment') as HTMLDivElement;
+const partsSection = document.getElementById('partsSection') as HTMLDivElement;
+const partsChecklist = document.getElementById('partsChecklist') as HTMLDivElement;
+const addMoreItemsBtn = document.getElementById('addMoreItemsBtn') as HTMLButtonElement;
+const additionalItemsDiv = document.getElementById('additionalItems') as HTMLDivElement;
+const requestNotesTextarea = document.getElementById('requestNotes') as HTMLTextAreaElement;
+
+// Item Picker Elements
+const itemPickerModal = document.getElementById('itemPickerModal') as HTMLDivElement;
+const itemPickerClose = document.getElementById('itemPickerClose') as HTMLButtonElement;
+const itemPickerSearch = document.getElementById('itemPickerSearch') as HTMLInputElement;
+const itemPickerGrid = document.getElementById('itemPickerGrid') as HTMLDivElement;
 
 // ============================================================
 // API Functions
@@ -123,6 +176,18 @@ async function fetchLocations(): Promise<Location[]> {
         throw new Error(`Failed to fetch locations: ${response.status}`);
     }
     return response.json();
+}
+
+async function createRequest(request: RequestCreate): Promise<void> {
+    const response = await api.fetch('/api/requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request),
+    });
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || `Failed to create request: ${response.status}`);
+    }
 }
 
 // ============================================================
@@ -199,8 +264,7 @@ function renderEquipmentCard(type: EquipmentType): HTMLDivElement {
 
     card.querySelector('.request-btn')?.addEventListener('click', (e) => {
         e.stopPropagation();
-        // TODO: Implement request flow (bead kzxe)
-        alert('Request flow coming soon!');
+        openRequestWizard(type.id);
     });
 
     card.addEventListener('click', () => {
@@ -345,6 +409,387 @@ function updateBackendStatus(connected: boolean, message?: string): void {
 }
 
 // ============================================================
+// Request Wizard Functions
+// ============================================================
+
+function resetWizard(): void {
+    wizardStep = 1;
+    wizardItems = [];
+    primaryTypeId = null;
+    sourceLocationSelect.value = '';
+    needByDateInput.value = '';
+    returnByDateInput.value = '';
+    permanentTransferCheckbox.checked = false;
+    returnDateGroup.style.display = 'block';
+    requestNotesTextarea.value = '';
+    additionalItemsDiv.innerHTML = '';
+    updateWizardStep();
+}
+
+async function openRequestWizard(typeId: number): Promise<void> {
+    resetWizard();
+    primaryTypeId = typeId;
+
+    // Ensure locations are loaded
+    if (locations.length === 0) {
+        try {
+            locations = await fetchLocations();
+        } catch (error) {
+            console.error('Failed to load locations:', error);
+            alert('Failed to load locations');
+            return;
+        }
+    }
+
+    // Populate source location dropdown
+    sourceLocationSelect.innerHTML = '<option value="">Select warehouse/location...</option>';
+    for (const loc of locations) {
+        const option = document.createElement('option');
+        option.value = String(loc.id);
+        option.textContent = `${loc.name} (${loc.branch_id})`;
+        sourceLocationSelect.appendChild(option);
+    }
+
+    // Set default need-by date to tomorrow
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    needByDateInput.value = tomorrow.toISOString().split('T')[0];
+    needByDateInput.min = new Date().toISOString().split('T')[0];
+    returnByDateInput.min = needByDateInput.value;
+
+    // Load primary equipment type with parts
+    try {
+        const type = await fetchEquipmentTypeWithParts(typeId);
+        const item: WizardItem = {
+            typeId,
+            type,
+            quantity: 1,
+            includeParts: true,
+            selectedPartIds: new Set(type.parts.filter(p => p.required).map(p => p.id)),
+        };
+        wizardItems = [item];
+    } catch (error) {
+        console.error('Failed to load equipment type:', error);
+        alert('Failed to load equipment details');
+        return;
+    }
+
+    // Close detail modal if open and show wizard
+    closeModal();
+    requestWizard.classList.add('active');
+    updateWizardStep();
+}
+
+function closeWizard(): void {
+    requestWizard.classList.remove('active');
+    resetWizard();
+}
+
+function updateWizardStep(): void {
+    // Update step indicators
+    document.querySelectorAll('.wizard-step').forEach((el, idx) => {
+        el.classList.remove('active', 'completed');
+        if (idx + 1 < wizardStep) el.classList.add('completed');
+        if (idx + 1 === wizardStep) el.classList.add('active');
+    });
+
+    // Update panels
+    document.querySelectorAll('.wizard-panel').forEach((el, idx) => {
+        el.classList.toggle('active', idx + 1 === wizardStep);
+    });
+
+    // Update buttons
+    wizardBackBtn.style.display = wizardStep > 1 ? 'inline-block' : 'none';
+    wizardNextBtn.textContent = wizardStep === 3 ? 'Submit Request' : 'Next';
+
+    // Render step-specific content
+    if (wizardStep === 2) {
+        renderStep2();
+    } else if (wizardStep === 3) {
+        renderStep3();
+    }
+}
+
+function renderStep2(): void {
+    const primary = wizardItems[0];
+    if (!primary) return;
+
+    const icon = getCategoryIcon(primary.type.category);
+
+    selectedEquipmentDiv.innerHTML = `
+        <div class="selected-equipment-item">
+            <div class="selected-equipment-icon">${icon}</div>
+            <div class="selected-equipment-info">
+                <div class="selected-equipment-name">${escapeHtml(primary.type.name)}</div>
+                <div class="selected-equipment-category">${escapeHtml(primary.type.category ?? 'Uncategorized')}</div>
+            </div>
+            <div class="selected-equipment-qty">
+                <label>Qty:</label>
+                <input type="number" class="qty-input" id="primaryQty" value="${primary.quantity}" min="1" max="99" />
+            </div>
+        </div>
+    `;
+
+    // Quantity change handler
+    const qtyInput = document.getElementById('primaryQty') as HTMLInputElement;
+    qtyInput?.addEventListener('change', () => {
+        primary.quantity = Math.max(1, parseInt(qtyInput.value) || 1);
+    });
+
+    // Render parts checklist
+    if (primary.type.parts.length > 0) {
+        partsSection.style.display = 'block';
+        partsChecklist.innerHTML = primary.type.parts.map(part => `
+            <div class="part-checkbox-item ${part.required ? 'required' : ''}">
+                <input type="checkbox"
+                       id="part_${part.id}"
+                       ${part.required ? 'checked disabled' : (primary.selectedPartIds.has(part.id) ? 'checked' : '')}
+                       data-part-id="${part.id}" />
+                <div class="part-checkbox-label">
+                    <span class="part-name">${escapeHtml(part.name)}</span>
+                    <span class="part-qty">(x${part.quantity})</span>
+                </div>
+                ${part.required ? '<span class="part-required-badge">Required</span>' : ''}
+            </div>
+        `).join('');
+
+        // Part checkbox handlers
+        partsChecklist.querySelectorAll('input[type="checkbox"]:not([disabled])').forEach(cb => {
+            cb.addEventListener('change', (e) => {
+                const target = e.target as HTMLInputElement;
+                const partId = parseInt(target.dataset.partId || '0');
+                if (target.checked) {
+                    primary.selectedPartIds.add(partId);
+                } else {
+                    primary.selectedPartIds.delete(partId);
+                }
+            });
+        });
+    } else {
+        partsSection.style.display = 'none';
+    }
+
+    // Render additional items
+    renderAdditionalItems();
+}
+
+function renderAdditionalItems(): void {
+    const additional = wizardItems.slice(1);
+    if (additional.length === 0) {
+        additionalItemsDiv.innerHTML = '';
+        return;
+    }
+
+    additionalItemsDiv.innerHTML = additional.map((item, idx) => `
+        <div class="additional-item" data-index="${idx + 1}">
+            <div class="additional-item-info">
+                <div class="additional-item-name">${escapeHtml(item.type.name)}</div>
+                <div class="additional-item-category">${escapeHtml(item.type.category ?? 'Uncategorized')}</div>
+            </div>
+            <input type="number" class="qty-input additional-qty" value="${item.quantity}" min="1" max="99" data-index="${idx + 1}" />
+            <button class="remove-item-btn" data-index="${idx + 1}">&times;</button>
+        </div>
+    `).join('');
+
+    // Quantity handlers
+    additionalItemsDiv.querySelectorAll('.additional-qty').forEach(input => {
+        input.addEventListener('change', (e) => {
+            const target = e.target as HTMLInputElement;
+            const index = parseInt(target.dataset.index || '0');
+            if (wizardItems[index]) {
+                wizardItems[index].quantity = Math.max(1, parseInt(target.value) || 1);
+            }
+        });
+    });
+
+    // Remove handlers
+    additionalItemsDiv.querySelectorAll('.remove-item-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const target = e.target as HTMLButtonElement;
+            const index = parseInt(target.dataset.index || '0');
+            wizardItems.splice(index, 1);
+            renderAdditionalItems();
+        });
+    });
+}
+
+function renderStep3(): void {
+    const sourceId = parseInt(sourceLocationSelect.value);
+    const source = locations.find(l => l.id === sourceId);
+
+    document.getElementById('reviewSource')!.textContent = source?.name ?? '-';
+    document.getElementById('reviewNeedBy')!.textContent = needByDateInput.value || '-';
+    document.getElementById('reviewReturnBy')!.textContent =
+        permanentTransferCheckbox.checked ? 'Permanent Transfer' : (returnByDateInput.value || '-');
+
+    const reviewItems = document.getElementById('reviewItems')!;
+    reviewItems.innerHTML = wizardItems.map(item => {
+        const partNames = item.type.parts
+            .filter(p => item.selectedPartIds.has(p.id))
+            .map(p => p.name)
+            .join(', ');
+
+        return `
+            <div class="review-item">
+                <div>
+                    <div class="review-item-name">${escapeHtml(item.type.name)}</div>
+                    ${partNames ? `<div class="review-item-parts">+ ${escapeHtml(partNames)}</div>` : ''}
+                </div>
+                <span class="review-item-qty">x${item.quantity}</span>
+            </div>
+        `;
+    }).join('');
+}
+
+function validateStep1(): boolean {
+    if (!sourceLocationSelect.value) {
+        alert('Please select a source location');
+        sourceLocationSelect.focus();
+        return false;
+    }
+    if (!needByDateInput.value) {
+        alert('Please select a need-by date');
+        needByDateInput.focus();
+        return false;
+    }
+    if (!permanentTransferCheckbox.checked && !returnByDateInput.value) {
+        alert('Please select a return date or mark as permanent transfer');
+        returnByDateInput.focus();
+        return false;
+    }
+    if (!permanentTransferCheckbox.checked && returnByDateInput.value < needByDateInput.value) {
+        alert('Return date must be after need-by date');
+        returnByDateInput.focus();
+        return false;
+    }
+    return true;
+}
+
+function validateStep2(): boolean {
+    if (wizardItems.length === 0) {
+        alert('Please select at least one equipment item');
+        return false;
+    }
+    return true;
+}
+
+async function submitRequest(): Promise<void> {
+    // Get requesting location (user's branch) - for now use first non-warehouse location
+    const requestingLocation = locations.find(l => !l.is_warehouse) || locations[0];
+    if (!requestingLocation) {
+        alert('No requesting location available');
+        return;
+    }
+
+    const request: RequestCreate = {
+        requesting_location_id: requestingLocation.id,
+        source_location_id: parseInt(sourceLocationSelect.value),
+        needed_from_date: needByDateInput.value,
+        needed_until_date: permanentTransferCheckbox.checked ? null : returnByDateInput.value,
+        notes: requestNotesTextarea.value.trim() || null,
+        lines: wizardItems.map(item => ({
+            equipment_type_id: item.typeId,
+            quantity: item.quantity,
+            include_parts: item.selectedPartIds.size > 0,
+        })),
+    };
+
+    wizardNextBtn.disabled = true;
+    wizardNextBtn.textContent = 'Submitting...';
+
+    try {
+        await createRequest(request);
+        closeWizard();
+        alert('Request submitted successfully!');
+    } catch (error) {
+        console.error('Failed to submit request:', error);
+        alert(`Failed to submit request: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+        wizardNextBtn.disabled = false;
+        wizardNextBtn.textContent = 'Submit Request';
+    }
+}
+
+function nextWizardStep(): void {
+    if (wizardStep === 1 && !validateStep1()) return;
+    if (wizardStep === 2 && !validateStep2()) return;
+
+    if (wizardStep === 3) {
+        submitRequest();
+        return;
+    }
+
+    wizardStep++;
+    updateWizardStep();
+}
+
+function prevWizardStep(): void {
+    if (wizardStep > 1) {
+        wizardStep--;
+        updateWizardStep();
+    }
+}
+
+function openItemPicker(): void {
+    itemPickerSearch.value = '';
+    renderItemPicker();
+    itemPickerModal.classList.add('active');
+}
+
+function closeItemPicker(): void {
+    itemPickerModal.classList.remove('active');
+}
+
+function renderItemPicker(filter = ''): void {
+    const search = filter.toLowerCase();
+    const existingIds = new Set(wizardItems.map(i => i.typeId));
+
+    const filtered = equipmentTypes.filter(t => {
+        if (existingIds.has(t.id)) return false;
+        if (!search) return true;
+        return t.name.toLowerCase().includes(search) ||
+               t.category?.toLowerCase().includes(search);
+    });
+
+    itemPickerGrid.innerHTML = filtered.map(type => {
+        const avail = availabilityByType.get(type.id);
+        const totalAvailable = avail?.reduce((sum, a) => sum + a.available_items, 0) ?? 0;
+        const icon = getCategoryIcon(type.category);
+
+        return `
+            <div class="item-picker-card" data-type-id="${type.id}">
+                <div class="item-picker-icon">${icon}</div>
+                <div class="item-picker-name">${escapeHtml(type.name)}</div>
+                <div class="item-picker-category">${escapeHtml(type.category ?? 'Uncategorized')}</div>
+                <div class="item-picker-availability">${totalAvailable} available</div>
+            </div>
+        `;
+    }).join('');
+
+    // Click handlers
+    itemPickerGrid.querySelectorAll('.item-picker-card').forEach(card => {
+        card.addEventListener('click', async () => {
+            const typeId = parseInt((card as HTMLElement).dataset.typeId || '0');
+            try {
+                const type = await fetchEquipmentTypeWithParts(typeId);
+                wizardItems.push({
+                    typeId,
+                    type,
+                    quantity: 1,
+                    includeParts: true,
+                    selectedPartIds: new Set(type.parts.filter(p => p.required).map(p => p.id)),
+                });
+                closeItemPicker();
+                renderAdditionalItems();
+            } catch (error) {
+                console.error('Failed to add item:', error);
+                alert('Failed to add item');
+            }
+        });
+    });
+}
+
+// ============================================================
 // Initialization
 // ============================================================
 
@@ -400,14 +845,53 @@ async function init(): Promise<void> {
     });
 
     modalRequestBtn.addEventListener('click', () => {
-        // TODO: Implement request flow (bead kzxe)
-        alert('Request flow coming soon!');
+        const typeId = parseInt(modalRequestBtn.dataset.typeId || '0');
+        if (typeId) {
+            openRequestWizard(typeId);
+        }
     });
 
-    // Escape key closes modal
+    // Wizard event listeners
+    wizardClose.addEventListener('click', closeWizard);
+    wizardCancelBtn.addEventListener('click', closeWizard);
+    wizardBackBtn.addEventListener('click', prevWizardStep);
+    wizardNextBtn.addEventListener('click', nextWizardStep);
+    requestWizard.addEventListener('click', (e) => {
+        if (e.target === requestWizard) closeWizard();
+    });
+
+    permanentTransferCheckbox.addEventListener('change', () => {
+        returnDateGroup.style.display = permanentTransferCheckbox.checked ? 'none' : 'block';
+    });
+
+    needByDateInput.addEventListener('change', () => {
+        returnByDateInput.min = needByDateInput.value;
+        if (returnByDateInput.value && returnByDateInput.value < needByDateInput.value) {
+            returnByDateInput.value = needByDateInput.value;
+        }
+    });
+
+    addMoreItemsBtn.addEventListener('click', openItemPicker);
+
+    // Item picker event listeners
+    itemPickerClose.addEventListener('click', closeItemPicker);
+    itemPickerModal.addEventListener('click', (e) => {
+        if (e.target === itemPickerModal) closeItemPicker();
+    });
+    itemPickerSearch.addEventListener('input', () => {
+        renderItemPicker(itemPickerSearch.value);
+    });
+
+    // Escape key closes modals
     document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && detailModal.classList.contains('active')) {
-            closeModal();
+        if (e.key === 'Escape') {
+            if (itemPickerModal.classList.contains('active')) {
+                closeItemPicker();
+            } else if (requestWizard.classList.contains('active')) {
+                closeWizard();
+            } else if (detailModal.classList.contains('active')) {
+                closeModal();
+            }
         }
     });
 

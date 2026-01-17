@@ -64,6 +64,146 @@
         </div>
     </div>
 
+    <!-- Request Wizard Modal -->
+    <div class="modal" id="requestWizard">
+        <div class="modal-content wizard-modal">
+            <div class="modal-header">
+                <h2 id="wizardTitle">New Equipment Request</h2>
+                <button class="modal-close" id="wizardClose">&times;</button>
+            </div>
+
+            <!-- Wizard Steps Indicator -->
+            <div class="wizard-steps">
+                <div class="wizard-step active" data-step="1">
+                    <span class="step-number">1</span>
+                    <span class="step-label">Dates</span>
+                </div>
+                <div class="wizard-step" data-step="2">
+                    <span class="step-number">2</span>
+                    <span class="step-label">Items</span>
+                </div>
+                <div class="wizard-step" data-step="3">
+                    <span class="step-number">3</span>
+                    <span class="step-label">Review</span>
+                </div>
+            </div>
+
+            <div class="modal-body wizard-body">
+                <!-- Step 1: Dates -->
+                <div class="wizard-panel active" id="step1Panel">
+                    <h3>When do you need this equipment?</h3>
+
+                    <div class="form-group">
+                        <label for="sourceLocation">Source Location</label>
+                        <select id="sourceLocation" required>
+                            <option value="">Select warehouse/location...</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="needByDate">Need By Date</label>
+                        <input type="date" id="needByDate" required />
+                    </div>
+
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="permanentTransfer" />
+                            <span>Permanent transfer (no return date)</span>
+                        </label>
+                    </div>
+
+                    <div class="form-group" id="returnDateGroup">
+                        <label for="returnByDate">Return By Date</label>
+                        <input type="date" id="returnByDate" />
+                    </div>
+                </div>
+
+                <!-- Step 2: Items -->
+                <div class="wizard-panel" id="step2Panel">
+                    <h3>Select Equipment & Parts</h3>
+
+                    <div class="selected-equipment" id="selectedEquipment">
+                        <!-- Primary equipment item shown here -->
+                    </div>
+
+                    <div class="parts-section" id="partsSection" style="display: none;">
+                        <h4>Included Parts</h4>
+                        <div class="parts-checklist" id="partsChecklist">
+                            <!-- Parts checkboxes populated by JS -->
+                        </div>
+                    </div>
+
+                    <div class="add-more-section">
+                        <button class="btn btn-secondary" id="addMoreItemsBtn">
+                            + Add More Equipment
+                        </button>
+                    </div>
+
+                    <div class="additional-items" id="additionalItems">
+                        <!-- Additional items added here -->
+                    </div>
+                </div>
+
+                <!-- Step 3: Review -->
+                <div class="wizard-panel" id="step3Panel">
+                    <h3>Review Your Request</h3>
+
+                    <div class="review-section">
+                        <div class="review-row">
+                            <span class="review-label">Source:</span>
+                            <span class="review-value" id="reviewSource">-</span>
+                        </div>
+                        <div class="review-row">
+                            <span class="review-label">Need By:</span>
+                            <span class="review-value" id="reviewNeedBy">-</span>
+                        </div>
+                        <div class="review-row">
+                            <span class="review-label">Return By:</span>
+                            <span class="review-value" id="reviewReturnBy">-</span>
+                        </div>
+                    </div>
+
+                    <div class="review-section">
+                        <h4>Items Requested</h4>
+                        <div class="review-items" id="reviewItems">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="requestNotes">Notes (optional)</label>
+                        <textarea id="requestNotes" rows="3" placeholder="Any special instructions..."></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer wizard-footer">
+                <button class="btn btn-secondary" id="wizardBackBtn" style="display: none;">Back</button>
+                <div class="footer-spacer"></div>
+                <button class="btn btn-secondary" id="wizardCancelBtn">Cancel</button>
+                <button class="btn btn-primary" id="wizardNextBtn">Next</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Item Picker Modal (for adding more items) -->
+    <div class="modal" id="itemPickerModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Add Equipment</h2>
+                <button class="modal-close" id="itemPickerClose">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="search-box">
+                    <input type="text" id="itemPickerSearch" placeholder="Search equipment..." />
+                </div>
+                <div class="item-picker-grid" id="itemPickerGrid">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="../../shared/api-bootstrap.js"></script>
     <script src="./equipment.js"></script>
 </body>
