@@ -45,6 +45,7 @@ def seed_locations(db: Session) -> dict[str, Location]:
         {"branch_id": "0302", "name": "Orlando Conference Center", "address": "200 International Dr, Orlando, FL 32819", "region": "East"},
         {"branch_id": "0401", "name": "Chicago Downtown Hotel", "address": "333 Michigan Ave, Chicago, IL 60601", "region": "North"},
         {"branch_id": "0402", "name": "Denver Mountain Lodge", "address": "444 Rocky Mountain Blvd, Denver, CO 80202", "region": "North"},
+        {"branch_id": "0479", "name": "Test Hotel", "address": "479 Test St, Test City, TX 75000", "region": "North"},
     ]
 
     locations = {}
