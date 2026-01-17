@@ -1256,7 +1256,7 @@ async function fetchTransferRequests(): Promise<RequestDetail[]> {
     if (!currentBranch) return [];
 
     // Fetch requests where this location is the source (other locations requesting from us)
-    const response = await fetch(`${getBackendUrl()}/api/requests?source_location_id=${currentBranch.branchId}`);
+    const response = await fetch(`${getBackendUrl()}/api/requests?source_location_id=${currentBranch.locationId}`);
     if (!response.ok) {
         throw new Error(`Failed to fetch transfer requests: ${response.status}`);
     }
