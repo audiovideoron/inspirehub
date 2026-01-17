@@ -230,6 +230,41 @@
         </div>
     </div>
 
+    <!-- Branch Setup Overlay (first-launch) -->
+    <div class="setup-overlay" id="branchSetupOverlay">
+        <div class="setup-card">
+            <div class="setup-icon">🏨</div>
+            <h2>Welcome to Equipment</h2>
+            <p class="setup-description">Enter your 4-digit branch ID to get started.</p>
+
+            <div class="setup-form">
+                <div class="branch-input-group">
+                    <input
+                        type="text"
+                        id="branchIdInput"
+                        maxlength="4"
+                        pattern="[0-9]{4}"
+                        placeholder="0000"
+                        autocomplete="off"
+                    />
+                    <span class="branch-hint">e.g., 0101 for Austin Grand Hotel</span>
+                </div>
+
+                <div class="branch-validation" id="branchValidation">
+                    <!-- Validation message appears here -->
+                </div>
+
+                <button class="btn btn-primary btn-lg" id="branchSubmitBtn" disabled>
+                    Continue
+                </button>
+            </div>
+
+            <div class="setup-footer">
+                <span class="setup-note">Branch 0000 is the warehouse with admin access.</span>
+            </div>
+        </div>
+    </div>
+
     <!-- Item Picker Modal (for adding more items) -->
     <div class="modal" id="itemPickerModal">
         <div class="modal-content">

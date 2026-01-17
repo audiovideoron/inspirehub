@@ -118,6 +118,16 @@ interface RequestDetail extends RequestResponse {
     lines: RequestLineResponse[];
 }
 
+interface BranchConfig {
+    branchId: string;
+    locationId: number;
+    locationName: string;
+    isWarehouse: boolean;
+    region: string | null;
+}
+
+const STORAGE_KEY = 'equipment_branch_config';
+
 // ============================================================
 // State
 // ============================================================
@@ -139,6 +149,10 @@ let currentView: 'catalog' | 'my-requests' = 'catalog';
 let myRequests: RequestDetail[] = [];
 let requestFilter = '';
 let requestStatusFilter = '';
+
+// Branch Config State
+let currentBranch: BranchConfig | null = null;
+let validatedLocation: Location | null = null;
 
 // ============================================================
 // DOM Elements
@@ -194,6 +208,12 @@ const requestsEmptyState = document.getElementById('requestsEmptyState') as HTML
 const requestSearchInput = document.getElementById('requestSearchInput') as HTMLInputElement;
 const requestStatusFilterSelect = document.getElementById('requestStatusFilter') as HTMLSelectElement;
 const newRequestFromEmpty = document.getElementById('newRequestFromEmpty') as HTMLButtonElement;
+
+// Branch Setup Elements
+const branchSetupOverlay = document.getElementById('branchSetupOverlay') as HTMLDivElement;
+const branchIdInput = document.getElementById('branchIdInput') as HTMLInputElement;
+const branchValidation = document.getElementById('branchValidation') as HTMLDivElement;
+const branchSubmitBtn = document.getElementById('branchSubmitBtn') as HTMLButtonElement;
 
 // ============================================================
 // API Functions
@@ -264,6 +284,150 @@ async function fetchMyRequests(): Promise<RequestDetail[]> {
         }
     }
     return details;
+}
+
+// ============================================================
+// Branch Setup Functions
+// ============================================================
+
+function loadSavedBranch(): BranchConfig | null {
+    try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+            return JSON.parse(saved);
+        }
+    } catch (error) {
+        console.warn('Failed to load saved branch config:', error);
+    }
+    return null;
+}
+
+function saveBranchConfig(config: BranchConfig): void {
+    try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+    } catch (error) {
+        console.warn('Failed to save branch config:', error);
+    }
+}
+
+async function validateBranchId(branchId: string): Promise<Location | null> {
+    try {
+        const response = await api.fetch('/api/locations');
+        if (!response.ok) {
+            throw new Error('Failed to fetch locations');
+        }
+        const allLocations: Location[] = await response.json();
+        return allLocations.find(loc => loc.branch_id === branchId) ?? null;
+    } catch (error) {
+        console.error('Failed to validate branch:', error);
+        return null;
+    }
+}
+
+function showBranchSetup(): void {
+    branchSetupOverlay.classList.remove('hidden');
+    branchIdInput.value = '';
+    branchIdInput.className = '';
+    branchValidation.className = 'branch-validation';
+    branchValidation.innerHTML = '';
+    branchSubmitBtn.disabled = true;
+    validatedLocation = null;
+    branchIdInput.focus();
+}
+
+function hideBranchSetup(): void {
+    branchSetupOverlay.classList.add('hidden');
+}
+
+function updateBranchValidationUI(state: 'loading' | 'success' | 'error', location?: Location): void {
+    branchValidation.className = `branch-validation ${state}`;
+
+    if (state === 'loading') {
+        branchValidation.innerHTML = '<span>Validating...</span>';
+        branchIdInput.className = '';
+        branchSubmitBtn.disabled = true;
+    } else if (state === 'success' && location) {
+        const warehouseBadge = location.is_warehouse
+            ? '<span class="branch-warehouse-badge">WAREHOUSE / ADMIN</span>'
+            : '';
+        branchValidation.innerHTML = `
+            <span class="branch-name">${escapeHtml(location.name)}</span>
+            <span class="branch-region">${escapeHtml(location.region ?? '')}</span>
+            ${warehouseBadge}
+        `;
+        branchIdInput.className = 'valid';
+        branchSubmitBtn.disabled = false;
+        validatedLocation = location;
+    } else {
+        branchValidation.innerHTML = '<span>Branch not found. Please check the ID.</span>';
+        branchIdInput.className = 'invalid';
+        branchSubmitBtn.disabled = true;
+        validatedLocation = null;
+    }
+}
+
+let branchValidationTimeout: ReturnType<typeof setTimeout> | null = null;
+
+async function handleBranchInput(): Promise<void> {
+    const value = branchIdInput.value.replace(/\D/g, '').slice(0, 4);
+    branchIdInput.value = value;
+
+    // Clear any pending validation
+    if (branchValidationTimeout) {
+        clearTimeout(branchValidationTimeout);
+        branchValidationTimeout = null;
+    }
+
+    // Reset if incomplete
+    if (value.length < 4) {
+        branchValidation.className = 'branch-validation';
+        branchValidation.innerHTML = '';
+        branchIdInput.className = '';
+        branchSubmitBtn.disabled = true;
+        validatedLocation = null;
+        return;
+    }
+
+    // Debounce validation
+    updateBranchValidationUI('loading');
+    branchValidationTimeout = setTimeout(async () => {
+        const location = await validateBranchId(value);
+        if (location) {
+            updateBranchValidationUI('success', location);
+        } else {
+            updateBranchValidationUI('error');
+        }
+    }, 300);
+}
+
+function handleBranchSubmit(): void {
+    if (!validatedLocation) return;
+
+    const config: BranchConfig = {
+        branchId: validatedLocation.branch_id,
+        locationId: validatedLocation.id,
+        locationName: validatedLocation.name,
+        isWarehouse: validatedLocation.is_warehouse,
+        region: validatedLocation.region
+    };
+
+    saveBranchConfig(config);
+    currentBranch = config;
+    hideBranchSetup();
+
+    // Update UI based on branch
+    updateUIForBranch();
+}
+
+function updateUIForBranch(): void {
+    if (!currentBranch) return;
+
+    // Update page title to show branch
+    if (pageTitle) {
+        pageTitle.textContent = currentBranch.isWarehouse
+            ? 'Equipment (Warehouse)'
+            : `Equipment - ${currentBranch.locationName}`;
+    }
 }
 
 // ============================================================
@@ -1160,6 +1324,15 @@ async function init(): Promise<void> {
         switchView('catalog');
     });
 
+    // Branch setup event listeners
+    branchIdInput.addEventListener('input', handleBranchInput);
+    branchSubmitBtn.addEventListener('click', handleBranchSubmit);
+    branchIdInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !branchSubmitBtn.disabled) {
+            handleBranchSubmit();
+        }
+    });
+
     // Escape key closes modals
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
@@ -1177,7 +1350,20 @@ async function init(): Promise<void> {
     try {
         updateBackendStatus(false, 'Connecting...');
         await api.waitForBackend(8090);
-        await loadData();
+
+        // Check for saved branch config
+        currentBranch = loadSavedBranch();
+        if (currentBranch) {
+            // Branch already configured - hide setup and load data
+            hideBranchSetup();
+            updateUIForBranch();
+            await loadData();
+        } else {
+            // First launch - show branch setup
+            showBranchSetup();
+            // Still load data in background so catalog is ready
+            await loadData();
+        }
     } catch (error) {
         console.error('Backend connection failed:', error);
         updateBackendStatus(false, 'Backend unavailable');
