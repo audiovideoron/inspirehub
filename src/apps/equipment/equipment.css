@@ -1396,3 +1396,250 @@ body {
     font-size: 12px;
     color: #999;
 }
+
+/* ============================================================
+   Approvals View (Warehouse Only)
+   ============================================================ */
+
+.nav-tab-admin {
+    background: #fff3cd;
+    border-color: #ffc107;
+}
+
+.nav-tab-admin.active {
+    background: #ffc107;
+    color: #000;
+}
+
+.nav-tab-admin.active::after {
+    background: #e0a800;
+}
+
+.approval-queue {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.approval-card {
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.approval-card.has-warning {
+    border-color: #ffc107;
+}
+
+.approval-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 16px;
+    background: #f8f9fa;
+    border-bottom: 1px solid #e0e0e0;
+    cursor: pointer;
+}
+
+.approval-card-header:hover {
+    background: #f0f0f0;
+}
+
+.approval-card-left {
+    flex: 1;
+}
+
+.approval-card-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.approval-request-id {
+    font-weight: 600;
+    font-size: 16px;
+}
+
+.approval-date {
+    font-size: 13px;
+    color: #666;
+}
+
+.approval-route {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    color: #444;
+}
+
+.approval-route .arrow {
+    color: #999;
+}
+
+.approval-card-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+}
+
+.approval-item-count {
+    font-size: 13px;
+    color: #666;
+}
+
+.stock-warning {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    color: #856404;
+    background: #fff3cd;
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+.stock-warning-icon {
+    font-size: 14px;
+}
+
+.approval-card-body {
+    display: none;
+    padding: 16px;
+    border-top: 1px solid #e0e0e0;
+}
+
+.approval-card.expanded .approval-card-body {
+    display: block;
+}
+
+.approval-items-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 16px;
+}
+
+.approval-items-table th,
+.approval-items-table td {
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.approval-items-table th {
+    background: #f8f9fa;
+    font-weight: 600;
+    font-size: 13px;
+    color: #666;
+}
+
+.approval-items-table td {
+    font-size: 14px;
+}
+
+.approval-items-table .qty-cell {
+    text-align: center;
+    width: 80px;
+}
+
+.approval-items-table .stock-cell {
+    text-align: center;
+    width: 100px;
+}
+
+.stock-ok {
+    color: #28a745;
+}
+
+.stock-low {
+    color: #ffc107;
+    font-weight: 600;
+}
+
+.stock-insufficient {
+    color: #dc3545;
+    font-weight: 600;
+}
+
+.approval-notes {
+    background: #f8f9fa;
+    padding: 12px;
+    border-radius: 6px;
+    margin-bottom: 16px;
+}
+
+.approval-notes-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #666;
+    margin-bottom: 4px;
+}
+
+.approval-notes-text {
+    font-size: 14px;
+    color: #333;
+}
+
+.approval-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    padding-top: 16px;
+    border-top: 1px solid #e0e0e0;
+}
+
+.btn-approve {
+    background: #28a745;
+    color: white;
+}
+
+.btn-approve:hover {
+    background: #218838;
+}
+
+.btn-deny {
+    background: #dc3545;
+    color: white;
+}
+
+.btn-deny:hover {
+    background: #c82333;
+}
+
+.btn-danger {
+    background: #dc3545;
+    color: white;
+    border: none;
+}
+
+.btn-danger:hover {
+    background: #c82333;
+}
+
+/* Denial Modal */
+.modal-sm .modal-content {
+    max-width: 400px;
+}
+
+.denial-prompt {
+    margin: 0 0 12px 0;
+    color: #666;
+}
+
+#denialReasonInput {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 14px;
+    resize: vertical;
+}
+
+#denialReasonInput:focus {
+    outline: none;
+    border-color: #dc3545;
+    box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.2);
+}

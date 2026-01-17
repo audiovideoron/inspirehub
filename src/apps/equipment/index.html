@@ -24,6 +24,7 @@
         <div class="nav-tabs">
             <button class="nav-tab active" data-view="catalog">Catalog</button>
             <button class="nav-tab" data-view="my-requests">My Requests</button>
+            <button class="nav-tab nav-tab-admin" data-view="approvals" id="approvalsTab" style="display: none;">Approvals</button>
         </div>
 
         <!-- Catalog View -->
@@ -87,6 +88,37 @@
                 <div class="empty-icon">📋</div>
                 <p>No requests found</p>
                 <button class="btn btn-primary" id="newRequestFromEmpty">Browse Equipment</button>
+            </div>
+        </div>
+
+        <!-- Approvals View (Warehouse Only) -->
+        <div class="view-panel" id="approvalsView">
+            <!-- Approval Filters -->
+            <div class="filters">
+                <div class="search-box">
+                    <input type="text" id="approvalSearchInput" placeholder="Search requests..." />
+                </div>
+                <div class="status-filter">
+                    <select id="approvalStatusFilter">
+                        <option value="Submitted">Pending Approval</option>
+                        <option value="Approved">Approved</option>
+                        <option value="">All Statuses</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Approval Queue -->
+            <div class="approval-queue" id="approvalQueue">
+                <div class="loading-state" id="approvalsLoadingState">
+                    <div class="spinner"></div>
+                    <p>Loading requests...</p>
+                </div>
+            </div>
+
+            <!-- Empty Approvals State -->
+            <div class="empty-state" id="approvalsEmptyState" style="display: none;">
+                <div class="empty-icon">✅</div>
+                <p>No pending requests</p>
             </div>
         </div>
     </div>
@@ -279,6 +311,26 @@
                 <div class="item-picker-grid" id="itemPickerGrid">
                     <!-- Populated by JS -->
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Denial Reason Modal -->
+    <div class="modal" id="denialModal">
+        <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <h2>Deny Request</h2>
+                <button class="modal-close" id="denialModalClose">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="denial-prompt">Please provide a reason for denying this request:</p>
+                <div class="form-group">
+                    <textarea id="denialReasonInput" rows="3" placeholder="Reason for denial..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="denialCancelBtn">Cancel</button>
+                <button class="btn btn-danger" id="denialConfirmBtn">Deny Request</button>
             </div>
         </div>
     </div>

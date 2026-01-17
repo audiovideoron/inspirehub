@@ -145,7 +145,7 @@ let wizardItems: WizardItem[] = [];
 let primaryTypeId: number | null = null;
 
 // My Requests State
-let currentView: 'catalog' | 'my-requests' = 'catalog';
+let currentView: 'catalog' | 'my-requests' | 'approvals' = 'catalog';
 let myRequests: RequestDetail[] = [];
 let requestFilter = '';
 let requestStatusFilter = '';
@@ -153,6 +153,12 @@ let requestStatusFilter = '';
 // Branch Config State
 let currentBranch: BranchConfig | null = null;
 let validatedLocation: Location | null = null;
+
+// Approvals State (Warehouse Only)
+let approvalRequests: RequestDetail[] = [];
+let approvalFilter = '';
+let approvalStatusFilterValue = 'Submitted';
+let pendingDenialRequestId: number | null = null;
 
 // ============================================================
 // DOM Elements
@@ -214,6 +220,22 @@ const branchSetupOverlay = document.getElementById('branchSetupOverlay') as HTML
 const branchIdInput = document.getElementById('branchIdInput') as HTMLInputElement;
 const branchValidation = document.getElementById('branchValidation') as HTMLDivElement;
 const branchSubmitBtn = document.getElementById('branchSubmitBtn') as HTMLButtonElement;
+
+// Approvals View Elements (Warehouse Only)
+const approvalsTab = document.getElementById('approvalsTab') as HTMLButtonElement;
+const approvalsView = document.getElementById('approvalsView') as HTMLDivElement;
+const approvalQueue = document.getElementById('approvalQueue') as HTMLDivElement;
+const approvalsLoadingState = document.getElementById('approvalsLoadingState') as HTMLDivElement;
+const approvalsEmptyState = document.getElementById('approvalsEmptyState') as HTMLDivElement;
+const approvalSearchInput = document.getElementById('approvalSearchInput') as HTMLInputElement;
+const approvalStatusFilter = document.getElementById('approvalStatusFilter') as HTMLSelectElement;
+
+// Denial Modal Elements
+const denialModal = document.getElementById('denialModal') as HTMLDivElement;
+const denialModalClose = document.getElementById('denialModalClose') as HTMLButtonElement;
+const denialReasonInput = document.getElementById('denialReasonInput') as HTMLTextAreaElement;
+const denialCancelBtn = document.getElementById('denialCancelBtn') as HTMLButtonElement;
+const denialConfirmBtn = document.getElementById('denialConfirmBtn') as HTMLButtonElement;
 
 // ============================================================
 // API Functions
@@ -284,6 +306,37 @@ async function fetchMyRequests(): Promise<RequestDetail[]> {
         }
     }
     return details;
+}
+
+async function approveRequest(requestId: number): Promise<void> {
+    const response = await api.fetch(`/api/requests/${requestId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            status: 'Approved',
+            reviewed_by_user_id: currentBranch?.branchId ?? null
+        })
+    });
+    if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
+        throw new Error(error.detail || `Failed to approve request: ${response.status}`);
+    }
+}
+
+async function denyRequest(requestId: number, reason: string): Promise<void> {
+    const response = await api.fetch(`/api/requests/${requestId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            status: 'Denied',
+            denial_reason: reason,
+            reviewed_by_user_id: currentBranch?.branchId ?? null
+        })
+    });
+    if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
+        throw new Error(error.detail || `Failed to deny request: ${response.status}`);
+    }
 }
 
 // ============================================================
@@ -427,6 +480,11 @@ function updateUIForBranch(): void {
         pageTitle.textContent = currentBranch.isWarehouse
             ? 'Equipment (Warehouse)'
             : `Equipment - ${currentBranch.locationName}`;
+    }
+
+    // Show/hide Approvals tab based on warehouse status
+    if (approvalsTab) {
+        approvalsTab.style.display = currentBranch.isWarehouse ? 'inline-block' : 'none';
     }
 }
 
@@ -678,7 +736,7 @@ function updateBackendStatus(connected: boolean, message?: string): void {
 // Navigation Functions
 // ============================================================
 
-function switchView(view: 'catalog' | 'my-requests'): void {
+function switchView(view: 'catalog' | 'my-requests' | 'approvals'): void {
     currentView = view;
 
     // Update tab states
@@ -690,10 +748,13 @@ function switchView(view: 'catalog' | 'my-requests'): void {
     // Update view panels
     catalogView.classList.toggle('active', view === 'catalog');
     myRequestsView.classList.toggle('active', view === 'my-requests');
+    approvalsView.classList.toggle('active', view === 'approvals');
 
     // Load data for the view
     if (view === 'my-requests') {
         loadMyRequests();
+    } else if (view === 'approvals') {
+        loadApprovals();
     }
 }
 
@@ -849,6 +910,227 @@ function renderRequestCard(req: RequestDetail): HTMLDivElement {
     });
 
     return card;
+}
+
+// ============================================================
+// Approvals Functions (Warehouse Only)
+// ============================================================
+
+async function loadApprovals(): Promise<void> {
+    approvalsLoadingState.style.display = 'flex';
+    approvalsEmptyState.style.display = 'none';
+    approvalQueue.innerHTML = '';
+    approvalQueue.appendChild(approvalsLoadingState);
+
+    try {
+        approvalRequests = await fetchMyRequests(); // Reuse - gets all requests with details
+        approvalsLoadingState.style.display = 'none';
+        renderApprovals();
+    } catch (error) {
+        console.error('Failed to load approval requests:', error);
+        approvalsLoadingState.style.display = 'none';
+        approvalsEmptyState.style.display = 'flex';
+    }
+}
+
+function renderApprovals(): void {
+    approvalQueue.innerHTML = '';
+
+    // Filter requests
+    let filtered = approvalRequests;
+
+    // Filter by status
+    if (approvalStatusFilterValue) {
+        filtered = filtered.filter(r => r.status === approvalStatusFilterValue);
+    }
+
+    // Filter by search
+    if (approvalFilter) {
+        const search = approvalFilter.toLowerCase();
+        filtered = filtered.filter(r =>
+            r.requesting_location?.name?.toLowerCase().includes(search) ||
+            r.source_location?.name?.toLowerCase().includes(search) ||
+            r.notes?.toLowerCase().includes(search) ||
+            r.lines.some(l => l.equipment_type?.name?.toLowerCase().includes(search))
+        );
+    }
+
+    if (filtered.length === 0) {
+        approvalsEmptyState.style.display = 'flex';
+        return;
+    }
+
+    approvalsEmptyState.style.display = 'none';
+
+    for (const req of filtered) {
+        approvalQueue.appendChild(renderApprovalCard(req));
+    }
+}
+
+function renderApprovalCard(req: RequestDetail): HTMLDivElement {
+    const card = document.createElement('div');
+    card.className = 'approval-card';
+    card.dataset.requestId = String(req.id);
+
+    const submittedDate = new Date(req.submitted_at).toLocaleDateString();
+    const itemCount = req.lines.reduce((sum, l) => sum + l.quantity, 0);
+
+    // Check stock levels for each line item
+    let hasStockWarning = false;
+    const lineStockInfo: Array<{ line: typeof req.lines[0], available: number, isLow: boolean, isInsufficient: boolean }> = [];
+
+    for (const line of req.lines) {
+        const availability = availabilityByType.get(line.equipment_type_id) ?? [];
+        const sourceAvail = availability.find(a => a.location_id === req.source_location_id);
+        const availableCount = sourceAvail?.available_items ?? 0;
+        const isInsufficient = availableCount < line.quantity;
+        const isLow = availableCount <= line.quantity && availableCount > 0;
+
+        if (isInsufficient || isLow) {
+            hasStockWarning = true;
+        }
+
+        lineStockInfo.push({ line, available: availableCount, isLow, isInsufficient });
+    }
+
+    if (hasStockWarning) {
+        card.classList.add('has-warning');
+    }
+
+    const isPending = req.status === 'Submitted';
+
+    card.innerHTML = `
+        <div class="approval-card-header">
+            <div class="approval-card-left">
+                <div class="approval-card-title">
+                    <span class="approval-request-id">Request #${req.id}</span>
+                    <span class="approval-date">${submittedDate}</span>
+                    <span class="status-badge ${req.status.toLowerCase()}">${escapeHtml(req.status)}</span>
+                </div>
+                <div class="approval-route">
+                    <span>${escapeHtml(req.source_location?.name ?? 'Unknown')}</span>
+                    <span class="arrow">→</span>
+                    <span>${escapeHtml(req.requesting_location?.name ?? 'Unknown')}</span>
+                </div>
+            </div>
+            <div class="approval-card-right">
+                <span class="approval-item-count">${itemCount} item${itemCount !== 1 ? 's' : ''}</span>
+                ${hasStockWarning ? `
+                    <div class="stock-warning">
+                        <span class="stock-warning-icon">⚠️</span>
+                        <span>Stock concern</span>
+                    </div>
+                ` : ''}
+            </div>
+        </div>
+        <div class="approval-card-body">
+            <table class="approval-items-table">
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th class="qty-cell">Qty</th>
+                        <th class="stock-cell">Available</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${lineStockInfo.map(({ line, available, isLow, isInsufficient }) => `
+                        <tr>
+                            <td>${escapeHtml(line.equipment_type?.name ?? `Type #${line.equipment_type_id}`)}</td>
+                            <td class="qty-cell">${line.quantity}</td>
+                            <td class="stock-cell ${isInsufficient ? 'stock-insufficient' : isLow ? 'stock-low' : 'stock-ok'}">
+                                ${available}
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+
+            ${req.notes ? `
+                <div class="approval-notes">
+                    <div class="approval-notes-label">Notes</div>
+                    <div class="approval-notes-text">${escapeHtml(req.notes)}</div>
+                </div>
+            ` : ''}
+
+            ${req.denial_reason ? `
+                <div class="denial-reason">
+                    <div class="denial-reason-label">Denial Reason</div>
+                    <div class="denial-reason-text">${escapeHtml(req.denial_reason)}</div>
+                </div>
+            ` : ''}
+
+            ${isPending ? `
+                <div class="approval-actions">
+                    <button class="btn btn-deny deny-btn" data-request-id="${req.id}">Deny</button>
+                    <button class="btn btn-approve approve-btn" data-request-id="${req.id}">Approve</button>
+                </div>
+            ` : ''}
+        </div>
+    `;
+
+    // Toggle expansion on header click
+    const header = card.querySelector('.approval-card-header');
+    header?.addEventListener('click', () => {
+        card.classList.toggle('expanded');
+    });
+
+    // Approve button handler
+    const approveBtn = card.querySelector('.approve-btn');
+    approveBtn?.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        await handleApprove(req.id);
+    });
+
+    // Deny button handler
+    const denyBtn = card.querySelector('.deny-btn');
+    denyBtn?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openDenialModal(req.id);
+    });
+
+    return card;
+}
+
+async function handleApprove(requestId: number): Promise<void> {
+    try {
+        await approveRequest(requestId);
+        await loadApprovals(); // Reload the list
+    } catch (error) {
+        console.error('Failed to approve request:', error);
+        alert(`Failed to approve: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+}
+
+function openDenialModal(requestId: number): void {
+    pendingDenialRequestId = requestId;
+    denialReasonInput.value = '';
+    denialModal.classList.add('active');
+    denialReasonInput.focus();
+}
+
+function closeDenialModal(): void {
+    denialModal.classList.remove('active');
+    pendingDenialRequestId = null;
+    denialReasonInput.value = '';
+}
+
+async function handleDenyConfirm(): Promise<void> {
+    if (!pendingDenialRequestId) return;
+
+    const reason = denialReasonInput.value.trim();
+    if (!reason) {
+        alert('Please provide a reason for denial.');
+        return;
+    }
+
+    try {
+        await denyRequest(pendingDenialRequestId, reason);
+        closeDenialModal();
+        await loadApprovals(); // Reload the list
+    } catch (error) {
+        console.error('Failed to deny request:', error);
+        alert(`Failed to deny: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
 }
 
 // ============================================================
@@ -1333,7 +1615,7 @@ async function init(): Promise<void> {
     // Navigation tabs
     navTabs.forEach(tab => {
         tab.addEventListener('click', () => {
-            const view = (tab as HTMLElement).dataset.view as 'catalog' | 'my-requests';
+            const view = (tab as HTMLElement).dataset.view as 'catalog' | 'my-requests' | 'approvals';
             if (view) {
                 switchView(view);
             }
@@ -1364,10 +1646,31 @@ async function init(): Promise<void> {
         }
     });
 
+    // Approval filters (warehouse only)
+    approvalSearchInput.addEventListener('input', () => {
+        approvalFilter = approvalSearchInput.value.trim();
+        renderApprovals();
+    });
+
+    approvalStatusFilter.addEventListener('change', () => {
+        approvalStatusFilterValue = approvalStatusFilter.value;
+        renderApprovals();
+    });
+
+    // Denial modal event listeners
+    denialModalClose.addEventListener('click', closeDenialModal);
+    denialCancelBtn.addEventListener('click', closeDenialModal);
+    denialConfirmBtn.addEventListener('click', handleDenyConfirm);
+    denialModal.addEventListener('click', (e) => {
+        if (e.target === denialModal) closeDenialModal();
+    });
+
     // Escape key closes modals
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
-            if (itemPickerModal.classList.contains('active')) {
+            if (denialModal.classList.contains('active')) {
+                closeDenialModal();
+            } else if (itemPickerModal.classList.contains('active')) {
                 closeItemPicker();
             } else if (requestWizard.classList.contains('active')) {
                 closeWizard();
