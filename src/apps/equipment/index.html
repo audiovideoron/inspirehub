@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src http://localhost:8090 http://localhost:8091 http://localhost:8092 http://localhost:8093 http://localhost:8094 http://localhost:8095 http://localhost:8096 http://localhost:8097 http://localhost:8098 http://localhost:8099">
+    <title>Equipment Catalog</title>
+    <link rel="stylesheet" href="equipment.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>Equipment Catalog</h1>
+            <div class="header-actions">
+                <div class="backend-status" id="backendStatus" title="Backend status">
+                    <span class="status-dot"></span>
+                    <span class="status-text">Connecting...</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="filters">
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="Search equipment..." />
+            </div>
+            <div class="category-filter">
+                <select id="categoryFilter">
+                    <option value="">All Categories</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Catalog Grid -->
+        <div class="catalog-grid" id="catalogGrid">
+            <div class="loading-state" id="loadingState">
+                <div class="spinner"></div>
+                <p>Loading equipment...</p>
+            </div>
+        </div>
+
+        <!-- Empty State -->
+        <div class="empty-state" id="emptyState" style="display: none;">
+            <div class="empty-icon">📦</div>
+            <p>No equipment found</p>
+        </div>
+    </div>
+
+    <!-- Equipment Detail Modal -->
+    <div class="modal" id="detailModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">Equipment Details</h2>
+                <button class="modal-close" id="modalClose">&times;</button>
+            </div>
+            <div class="modal-body" id="modalBody">
+                <!-- Populated by JS -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="modalCancelBtn">Close</button>
+                <button class="btn btn-primary" id="modalRequestBtn">Request</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="../../shared/api-bootstrap.js"></script>
+    <script src="./equipment.js"></script>
+</body>
+</html>
