@@ -7,10 +7,32 @@ declare const api: {
     fetch: (path: string, options?: RequestInit) => Promise<Response>;
     getBaseUrl: () => string;
     waitForBackend: (port: number) => Promise<boolean>;
+    shellLog?: {
+        add: (params: { source: string; level: 'debug' | 'info' | 'warn' | 'error'; message: string; data?: any }) => Promise<void>;
+    };
 };
 
 // IIFE to create module scope and avoid TypeScript duplicate function errors
 (function() {
+
+// ============================================================
+// Logging Helper
+// ============================================================
+
+/**
+ * Log UI events to shell logging service (for bug reports)
+ */
+function logEvent(message: string, level: 'info' | 'warn' | 'error' = 'info'): void {
+    if (api?.shellLog?.add) {
+        api.shellLog.add({
+            source: 'equipment',
+            level,
+            message
+        }).catch(() => {
+            // Silently ignore logging failures
+        });
+    }
+}
 
 // ============================================================
 // Types
@@ -1167,12 +1189,16 @@ function renderApprovalCard(req: RequestDetail): HTMLDivElement {
 }
 
 async function handleApprove(requestId: number): Promise<void> {
+    logEvent(`Approving request: ${requestId}`);
     try {
         await approveRequest(requestId);
+        logEvent(`Request approved: ${requestId}`);
         await loadApprovals(); // Reload the list
     } catch (error) {
+        const errMsg = error instanceof Error ? error.message : 'Unknown error';
+        logEvent(`Request approval failed: ${requestId} - ${errMsg}`, 'error');
         console.error('Failed to approve request:', error);
-        alert(`Failed to approve: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        alert(`Failed to approve: ${errMsg}`);
     }
 }
 
@@ -1198,13 +1224,19 @@ async function handleDenyConfirm(): Promise<void> {
         return;
     }
 
+    const requestId = pendingDenialRequestId;
+    logEvent(`Denying request: ${requestId}`);
+
     try {
-        await denyRequest(pendingDenialRequestId, reason);
+        await denyRequest(requestId, reason);
+        logEvent(`Request denied: ${requestId}`);
         closeDenialModal();
         await loadApprovals(); // Reload the list
     } catch (error) {
+        const errMsg = error instanceof Error ? error.message : 'Unknown error';
+        logEvent(`Request denial failed: ${requestId} - ${errMsg}`, 'error');
         console.error('Failed to deny request:', error);
-        alert(`Failed to deny: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        alert(`Failed to deny: ${errMsg}`);
     }
 }
 
@@ -1436,13 +1468,18 @@ function renderTransferCard(req: RequestDetail): HTMLDivElement {
 async function handleApproveTransfer(requestId: number): Promise<void> {
     if (!confirm('Approve this transfer request?')) return;
 
+    logEvent(`Approving transfer: ${requestId}`);
+
     try {
         await approveTransfer(requestId);
+        logEvent(`Transfer approved: ${requestId}`);
         await loadTransfers(); // Reload the list
         updateBadgeCounts(); // Update badge
     } catch (error) {
+        const errMsg = error instanceof Error ? error.message : 'Unknown error';
+        logEvent(`Transfer approval failed: ${requestId} - ${errMsg}`, 'error');
         console.error('Failed to approve transfer:', error);
-        alert(`Failed to approve: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        alert(`Failed to approve: ${errMsg}`);
     }
 }
 
@@ -1469,14 +1506,20 @@ async function handleTransferDenyConfirm(): Promise<void> {
         return;
     }
 
+    const requestId = pendingTransferDenialRequestId;
+    logEvent(`Denying transfer: ${requestId}`);
+
     try {
-        await denyTransfer(pendingTransferDenialRequestId, reason);
+        await denyTransfer(requestId, reason);
+        logEvent(`Transfer denied: ${requestId}`);
         closeTransferDenialModal();
         await loadTransfers(); // Reload the list
         updateBadgeCounts(); // Update badge
     } catch (error) {
+        const errMsg = error instanceof Error ? error.message : 'Unknown error';
+        logEvent(`Transfer denial failed: ${requestId} - ${errMsg}`, 'error');
         console.error('Failed to deny transfer:', error);
-        alert(`Failed to deny: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        alert(`Failed to deny: ${errMsg}`);
     }
 }
 
@@ -1774,13 +1817,19 @@ async function submitRequest(): Promise<void> {
     wizardNextBtn.disabled = true;
     wizardNextBtn.textContent = 'Submitting...';
 
+    const itemCount = wizardItems.reduce((sum, item) => sum + item.quantity, 0);
+    logEvent(`Submitting request: ${itemCount} items`);
+
     try {
         await createRequest(request);
+        logEvent(`Request submitted successfully: ${itemCount} items`);
         closeWizard();
         alert('Request submitted successfully!');
     } catch (error) {
+        const errMsg = error instanceof Error ? error.message : 'Unknown error';
+        logEvent(`Request submission failed: ${errMsg}`, 'error');
         console.error('Failed to submit request:', error);
-        alert(`Failed to submit request: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        alert(`Failed to submit request: ${errMsg}`);
     } finally {
         wizardNextBtn.disabled = false;
         wizardNextBtn.textContent = 'Submit Request';
@@ -2052,6 +2101,7 @@ async function init(): Promise<void> {
     try {
         updateBackendStatus(false, 'Connecting...');
         await api.waitForBackend(8090);
+        logEvent('Backend connected');
 
         // Check for saved branch config
         currentBranch = loadSavedBranch();
@@ -2059,14 +2109,19 @@ async function init(): Promise<void> {
             // Branch already configured - hide setup and load data
             hideBranchSetup();
             updateUIForBranch();
+            logEvent(`Branch configured: ${currentBranch}`);
             await loadData();
+            logEvent('Equipment data loaded');
         } else {
             // First launch - show branch setup
             showBranchSetup();
+            logEvent('Showing branch setup (first launch)');
             // Still load data in background so catalog is ready
             await loadData();
         }
     } catch (error) {
+        const errMsg = error instanceof Error ? error.message : 'Unknown error';
+        logEvent(`Backend connection failed: ${errMsg}`, 'error');
         console.error('Backend connection failed:', error);
         updateBackendStatus(false, 'Backend unavailable');
     }

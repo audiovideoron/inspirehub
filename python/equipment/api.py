@@ -1,16 +1,22 @@
 """FastAPI application for Equipment module v2."""
 
 import argparse
+import logging
 import secrets
 import sys
 from datetime import datetime, timezone
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Depends, Query
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import func, and_, or_
 from sqlalchemy.orm import Session, joinedload
 import uvicorn
+
+# Add parent directory to path for shared imports
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from shared.logging import setup_logging as shared_setup_logging, get_logger
 
 from .database import get_db, engine, Base
 from .models import (
@@ -774,13 +780,18 @@ def main():
     parser.add_argument("--host", type=str, default="127.0.0.1", help="Host to bind to")
     args = parser.parse_args()
 
+    # Set up logging to /tmp/inspirehub-equipment.log for Bug Spray
+    shared_setup_logging('equipment', level=logging.INFO, also_stdout=True)
+    logger = get_logger(__name__)
+
     # Generate shutdown token
     shutdown_token = secrets.token_urlsafe(32)
 
     # Print READY signal for python-bridge.ts
     print(f"READY:{args.port}:{shutdown_token}", flush=True)
+    logger.info(f"Equipment API starting on {args.host}:{args.port}")
 
-    # Run server
+    # Run server with logging
     uvicorn.run(
         app,
         host=args.host,
