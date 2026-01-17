@@ -6,7 +6,9 @@
 # Issue prefix for this repository (used by bd init)
 # If not set, bd init will auto-detect from directory name
 # Example: issue-prefix: "myproject" creates issues like "myproject-1", "myproject-2", etc.
-# issue-prefix: ""
+# NOTE: Keeping "InspirePriceList" prefix for backwards compatibility with 362 existing issues.
+# Changing would require renaming all issue IDs which could break external references.
+# issue-prefix: "inspirehub"
 
 # Use no-db mode: load from JSONL, no SQLite, write back after each command
 # When true, bd will use .beads/issues.jsonl as the source of truth
