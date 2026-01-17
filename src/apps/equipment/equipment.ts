@@ -567,7 +567,10 @@ function populateCategoryFilter(): void {
 async function showDetailModal(typeId: number): Promise<void> {
     try {
         const type = await fetchEquipmentTypeWithParts(typeId);
-        const availability = availabilityByType.get(typeId) ?? [];
+        const allAvailability = availabilityByType.get(typeId) ?? [];
+
+        // Filter to only locations with available items
+        const availability = allAvailability.filter(a => a.available_items > 0);
 
         modalTitle.textContent = type.name;
         modalBody.innerHTML = `
@@ -577,18 +580,29 @@ async function showDetailModal(typeId: number): Promise<void> {
             </div>
 
             <div class="detail-section">
-                <h3>Availability by Location</h3>
-                <div class="availability-grid">
-                    ${availability.map(a => `
-                        <div class="availability-item">
-                            <div class="availability-location">${escapeHtml(a.location_name ?? 'Unknown')}</div>
-                            <div class="availability-count">
-                                <span class="available">${a.available_items}</span> / ${a.total_items} available
+                <h3>Available Inventory</h3>
+                ${availability.length > 0 ? `
+                    <div class="inventory-list">
+                        ${availability.map(a => `
+                            <div class="inventory-item" data-location-id="${a.location_id}">
+                                <div class="inventory-info">
+                                    <div class="inventory-location">${escapeHtml(a.location_name ?? 'Unknown')}</div>
+                                    <div class="inventory-count">
+                                        <span class="inventory-available">${a.available_items}</span> available
+                                        ${a.reserved_items > 0 ? `<span class="inventory-reserved">(${a.reserved_items} reserved)</span>` : ''}
+                                    </div>
+                                </div>
+                                <button class="btn btn-sm btn-primary request-from-btn" data-location-id="${a.location_id}">
+                                    Request
+                                </button>
                             </div>
-                        </div>
-                    `).join('')}
-                    ${availability.length === 0 ? '<p>No availability data</p>' : ''}
-                </div>
+                        `).join('')}
+                    </div>
+                ` : `
+                    <div class="no-inventory">
+                        <p>No inventory currently available at any location.</p>
+                    </div>
+                `}
             </div>
 
             ${type.parts.length > 0 ? `
@@ -609,10 +623,22 @@ async function showDetailModal(typeId: number): Promise<void> {
             ` : ''}
         `;
 
-        // Update request button state
+        // Add click handlers for per-location request buttons
+        modalBody.querySelectorAll('.request-from-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const locationId = parseInt((btn as HTMLElement).dataset.locationId ?? '0');
+                if (locationId) {
+                    openRequestWizard(typeId, locationId);
+                }
+            });
+        });
+
+        // Update main request button state (hide if no availability)
         const totalAvailable = availability.reduce((sum, a) => sum + a.available_items, 0);
         modalRequestBtn.disabled = totalAvailable === 0;
         modalRequestBtn.dataset.typeId = String(typeId);
+        // Hide the main request button since we have per-location buttons
+        modalRequestBtn.style.display = availability.length > 0 ? 'none' : 'inline-block';
 
         detailModal.classList.add('active');
     } catch (error) {
@@ -843,7 +869,7 @@ function resetWizard(): void {
     updateWizardStep();
 }
 
-async function openRequestWizard(typeId: number): Promise<void> {
+async function openRequestWizard(typeId: number, preselectedSourceId?: number): Promise<void> {
     resetWizard();
     primaryTypeId = typeId;
 
@@ -865,6 +891,11 @@ async function openRequestWizard(typeId: number): Promise<void> {
         option.value = String(loc.id);
         option.textContent = `${loc.name} (${loc.branch_id})`;
         sourceLocationSelect.appendChild(option);
+    }
+
+    // Pre-select source location if provided
+    if (preselectedSourceId) {
+        sourceLocationSelect.value = String(preselectedSourceId);
     }
 
     // Set default need-by date to tomorrow
