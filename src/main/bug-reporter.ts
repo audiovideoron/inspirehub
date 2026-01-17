@@ -14,6 +14,7 @@ import {
     MAX_DESCRIPTION_LENGTH,
     MAX_TITLE_LENGTH
 } from '../shared/utils';
+import { getLogsForBugSpray, hasErrorLogs, LogEntry } from './shell-logger';
 
 // GitHub API configuration for user bug reports
 const GITHUB_REPO = 'audiovideoron/inspirehub';
@@ -185,20 +186,59 @@ export class BugReporter {
     }
 
     /**
-     * Collect logs from python-bridge and Python backend
+     * Collect logs from shell logging service (frontend) and backend log files.
+     * Discovers all InspireHub backend logs from /tmp/inspirehub-*.log
      */
     async captureLogs(): Promise<{ [filename: string]: string }> {
-        const logFiles = [
+        const logs: { [filename: string]: string } = {};
+
+        // 1. Get frontend logs from shell logging service (in-memory buffer)
+        try {
+            const frontendLogs = getLogsForBugSpray({ limit: 100 });
+            if (frontendLogs.length > 0) {
+                logs['frontend-logs.txt'] = this.sanitizeLogs(frontendLogs.join('\n'));
+            }
+        } catch (error) {
+            console.error('Failed to get frontend logs:', error);
+        }
+
+        // 2. Discover and read backend logs from /tmp/inspirehub-*.log
+        const backendLogDir = process.platform === 'win32'
+            ? os.tmpdir()
+            : '/tmp';
+
+        try {
+            const files = await fs.readdir(backendLogDir);
+            const inspirehubLogs = files.filter(f => f.startsWith('inspirehub-') && f.endsWith('.log'));
+
+            for (const logFile of inspirehubLogs) {
+                try {
+                    const logPath = path.join(backendLogDir, logFile);
+                    const content = await fs.readFile(logPath, 'utf-8');
+                    const lines = content.split('\n');
+                    // Last 50 lines, sanitized
+                    const last50 = lines.slice(-50).join('\n');
+                    logs[logFile] = this.sanitizeLogs(last50);
+                } catch (error) {
+                    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+                        logs[logFile] = `Error reading log: ${error instanceof Error ? error.message : String(error)}`;
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Failed to discover backend logs:', error);
+        }
+
+        // 3. Also check legacy log locations for backwards compatibility
+        const legacyLogFiles = [
             path.join(app.getPath('userData'), 'python-bridge.log'),
             '/tmp/debug.log'
         ];
 
-        const logs: { [filename: string]: string } = {};
-        for (const logFile of logFiles) {
+        for (const logFile of legacyLogFiles) {
             try {
                 const content = await fs.readFile(logFile, 'utf-8');
                 const lines = content.split('\n');
-                // Last 50 lines, sanitized
                 const last50 = lines.slice(-50).join('\n');
                 logs[path.basename(logFile)] = this.sanitizeLogs(last50);
             } catch (error) {
@@ -232,15 +272,54 @@ export class BugReporter {
 
     /**
      * Check if current session logs contain ERROR level entries.
-     * ERROR level logs are from Python backend and cannot be injected via /api/log.
+     * Checks both frontend (shell logging service) and backend log files.
+     * ERROR level logs from backend cannot be injected via /api/log.
      * Used to determine if bug report should auto-approve (skip triage).
      */
     async hasErrorInLogs(): Promise<boolean> {
-        const logs = await this.captureLogs();
+        // 1. Check frontend logs from shell logging service (fast, in-memory)
+        if (hasErrorLogs()) {
+            return true;
+        }
 
-        for (const content of Object.values(logs)) {
-            if (hasErrorInLogContent(content, this.sessionStartTime)) {
-                return true;
+        // 2. Check backend log files for ERROR level entries
+        const backendLogDir = process.platform === 'win32'
+            ? os.tmpdir()
+            : '/tmp';
+
+        try {
+            const files = await fs.readdir(backendLogDir);
+            const inspirehubLogs = files.filter(f => f.startsWith('inspirehub-') && f.endsWith('.log'));
+
+            for (const logFile of inspirehubLogs) {
+                try {
+                    const logPath = path.join(backendLogDir, logFile);
+                    const content = await fs.readFile(logPath, 'utf-8');
+                    if (hasErrorInLogContent(content, this.sessionStartTime)) {
+                        return true;
+                    }
+                } catch {
+                    // File read error, continue checking others
+                }
+            }
+        } catch {
+            // Directory read error
+        }
+
+        // 3. Also check legacy log locations
+        const legacyLogFiles = [
+            path.join(app.getPath('userData'), 'python-bridge.log'),
+            '/tmp/debug.log'
+        ];
+
+        for (const logFile of legacyLogFiles) {
+            try {
+                const content = await fs.readFile(logFile, 'utf-8');
+                if (hasErrorInLogContent(content, this.sessionStartTime)) {
+                    return true;
+                }
+            } catch {
+                // File doesn't exist or read error
             }
         }
 
@@ -252,40 +331,77 @@ export class BugReporter {
      * Only shows events from current session (since last renderer load)
      */
     async getFilteredLogsForDisplay(): Promise<string[]> {
-        const logs = await this.captureLogs();
         const events: string[] = [];
 
-        for (const content of Object.values(logs)) {
-            const lines = content.split('\n');
-            for (const line of lines) {
-                // Skip health checks
-                if (line.includes('/api/health')) continue;
-                // Skip empty lines
-                if (!line.trim()) continue;
-                // Skip startup noise
-                if (line.includes('Debug mode:')) continue;
-                if (line.includes('Port:') && !line.includes('Loading')) continue;
-                if (line.includes('READY signal')) continue;
-
-                // Filter by session time - only show events from current session
-                const logTime = parseLogTimestamp(line);
-                if (logTime && logTime < this.sessionStartTime) {
-                    continue; // Skip events from before this session
-                }
-
-                // Extract meaningful events
+        // 1. Get frontend events from shell logging service (structured, in-memory)
+        try {
+            const frontendLogs = getLogsForBugSpray({
+                since: this.sessionStartTime.toISOString(),
+                limit: 50
+            });
+            for (const line of frontendLogs) {
                 const event = this.formatLogLine(line);
-                if (event) {
-                    // Deduplicate consecutive identical events
+                if (event && !this.isNoiseLog(line)) {
                     if (events.length === 0 || events[events.length - 1] !== event) {
                         events.push(event);
                     }
                 }
             }
+        } catch {
+            // Shell logging not available
+        }
+
+        // 2. Get backend events from log files
+        const backendLogDir = process.platform === 'win32'
+            ? os.tmpdir()
+            : '/tmp';
+
+        try {
+            const files = await fs.readdir(backendLogDir);
+            const inspirehubLogs = files.filter(f => f.startsWith('inspirehub-') && f.endsWith('.log'));
+
+            for (const logFile of inspirehubLogs) {
+                try {
+                    const logPath = path.join(backendLogDir, logFile);
+                    const content = await fs.readFile(logPath, 'utf-8');
+                    const lines = content.split('\n');
+
+                    for (const line of lines) {
+                        if (this.isNoiseLog(line)) continue;
+                        if (!line.trim()) continue;
+
+                        // Filter by session time
+                        const logTime = parseLogTimestamp(line);
+                        if (logTime && logTime < this.sessionStartTime) continue;
+
+                        const event = this.formatLogLine(line);
+                        if (event) {
+                            if (events.length === 0 || events[events.length - 1] !== event) {
+                                events.push(event);
+                            }
+                        }
+                    }
+                } catch {
+                    // File read error
+                }
+            }
+        } catch {
+            // Directory read error
         }
 
         // Return last 10 meaningful events
         return events.slice(-10);
+    }
+
+    /**
+     * Check if a log line is noise that should be filtered out
+     */
+    private isNoiseLog(line: string): boolean {
+        return line.includes('/api/health') ||
+               line.includes('Debug mode:') ||
+               (line.includes('Port:') && !line.includes('Loading')) ||
+               line.includes('READY signal') ||
+               line.includes('Logging initialized');
     }
 
     /**
